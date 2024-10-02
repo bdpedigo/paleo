@@ -1,47 +1,59 @@
-from typing import Optional, Union
+# %%
+import datetime
+from collections import namedtuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
+import pytz
 from requests import HTTPError
-from scipy.sparse import csr_array
-from scipy.sparse.csgraph import connected_components
-from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
+from paleo import get_level2_edits
 
-from .networkdelta import NetworkDelta, combine_deltas
+client = CAVEclient("minnie65_phase3_v1")
 
-Number = Union[int, float, np.number]
-Integer = Union[int, np.integer]
+root_id = 864691135639556411
+
+change_log = client.chunkedgraph.get_tabular_change_log(root_id)[root_id]
+
+change_log = pd.DataFrame(change_log).set_index("operation_id")
+
+merge_id = change_log.index[0]
+split_id = change_log.index[1]
+
+# %%
+details = client.chunkedgraph.get_operation_details([merge_id, split_id])
+
+merge_details = details[str(merge_id)]
+added_edges = details[str(merge_id)]["added_edges"]
+nodes_affected = np.unique(np.concatenate([list(edge) for edge in added_edges]))
+merge_row = change_log.loc[merge_id]
+ts = merge_row["timestamp"]
+
+timestamp = datetime.datetime.fromtimestamp(ts / 1000, pytz.UTC)
+delta = datetime.timedelta(microseconds=1)
+
+pre_l2_ids = client.chunkedgraph.get_roots(
+    nodes_affected, stop_layer=2, timestamp=timestamp - delta
+)
+post_l2_ids = client.chunkedgraph.get_roots(
+    nodes_affected, stop_layer=2, timestamp=timestamp + delta
+)
+
+# %%
 
 
-def get_detailed_change_log(
-    root_id: int, client: CAVEclient, filtered: bool = True
-) -> pd.DataFrame:
-    cg = client.chunkedgraph
-    change_log = cg.get_tabular_change_log(root_id, filtered=filtered)[root_id]
-
-    change_log.set_index("operation_id", inplace=True)
-    change_log.sort_values("timestamp", inplace=True)
-    change_log.drop(columns=["timestamp"], inplace=True)
-
-    chunk_size = 500  # not sure exactly what the limit is here
-    details = {}
-    for i in range(0, len(change_log), chunk_size):
-        sub_details = cg.get_operation_details(
-            change_log.index[i : i + chunk_size].to_list()
-        )
-        details.update(sub_details)
-    assert len(details) == len(change_log)
-
-    details = pd.DataFrame(details).T
-    details.index.name = "operation_id"
-    details.index = details.index.astype(int)
-
-    change_log = change_log.join(details)
-
-    return change_log
+NetworkDelta = namedtuple(
+    "NetworkDelta",
+    [
+        "removed_nodes",
+        "added_nodes",
+        "removed_edges",
+        "added_edges",
+        "metadata",
+    ],
+)
 
 
 def _get_changed_edges(
@@ -60,7 +72,7 @@ def _get_changed_edges(
 
 
 def _make_bbox(
-    bbox_halfwidth: Number, point_in_nm: np.ndarray, seg_resolution: np.ndarray
+    bbox_halfwidth: int, point_in_nm: np.ndarray, seg_resolution: np.ndarray
 ) -> np.ndarray:
     x_center, y_center, z_center = point_in_nm
 
@@ -111,7 +123,7 @@ def _get_level2_nodes_edges(
 
 
 def _get_all_nodes_edges(
-    root_ids: Number, client: CAVEclient, bounds: Optional[np.ndarray] = None
+    root_ids: list[int], client: CAVEclient, bounds: Optional[np.ndarray] = None
 ):
     all_nodes = []
     all_edges = []
@@ -124,29 +136,13 @@ def _get_all_nodes_edges(
     return all_nodes, all_edges
 
 
-def get_operation_level2_edits(
-    operation_id: Integer,
-    client: CAVEclient,
-    verbose: bool = True,
-    bounds_halfwidth: Number = 20_000,
-    metadata: bool = True,
-) -> NetworkDelta:
-    pass
-
-
 def get_level2_edits(
-    root_id: Integer,
+    operataion_ids: list[int],
     client: CAVEclient,
     verbose: bool = True,
-    bounds_halfwidth: Number = 20_000,
+    bounds_halfwidth: int = 20_000,
     metadata: bool = True,
-) -> dict[Integer, NetworkDelta]:
-    # TODO refactor this into CAVEclient
-    change_log = get_detailed_change_log(root_id, client, filtered=False)
-    filtered_change_log = get_detailed_change_log(root_id, client, filtered=True)
-    change_log["is_filtered"] = False
-    change_log.loc[filtered_change_log.index, "is_filtered"] = True
-
+) -> dict[int, NetworkDelta]:
     seg_resolution = client.chunkedgraph.base_resolution
 
     def _get_info_for_operation(operation_id):
@@ -208,65 +204,47 @@ def get_level2_edits(
             metadata=metadata_dict,
         )
 
-    with tqdm_joblib(
-        total=len(change_log.index),
-        disable=not verbose,
-        desc="Extracting level2 edits",
-    ):
-        networkdeltas_by_operation = Parallel(n_jobs=-1)(
-            delayed(_get_info_for_operation)(operation_id)
-            for operation_id in change_log.index
-        )
-
-    networkdeltas_by_operation = dict(zip(change_log.index, networkdeltas_by_operation))
+    networkdeltas_by_operation = {}
+    for operation_id in operataion_ids:
+        networkdeltas_by_operation[operation_id] = _get_info_for_operation(operation_id)
 
     return networkdeltas_by_operation
 
 
-def get_metaedits(
-    networkdeltas: dict[Integer, NetworkDelta],
-) -> dict[Integer, NetworkDelta]:
-    # find the nodes that are modified in any way by each operation
-    mod_sets = {}
-    for edit_id, delta in networkdeltas.items():
-        mod_set = []
-        mod_set += delta.added_nodes.index.tolist()
-        mod_set += delta.removed_nodes.index.tolist()
-        mod_set += delta.added_edges["source"].tolist()
-        mod_set += delta.added_edges["target"].tolist()
-        mod_set += delta.removed_edges["source"].tolist()
-        mod_set += delta.removed_edges["target"].tolist()
-        mod_set = np.unique(mod_set)
-        mod_sets[edit_id] = mod_set
+# %%
 
-    # make an incidence matrix of which nodes are modified by which operations
-    index = np.unique(np.concatenate(list(mod_sets.values())))
-    node_edit_indicators = pd.DataFrame(
-        index=index, columns=networkdeltas.keys(), data=False
-    )
-    for edit_id, mod_set in mod_sets.items():
-        node_edit_indicators.loc[mod_set, edit_id] = True
+networkdeltas = get_level2_edits(root_id, client)
 
-    # this inner product matrix tells us which operations are connected with at least
-    # one overlapping node in common
-    X = csr_array(node_edit_indicators.values.astype(int))
-    product = X.T @ X
+# %%
+networkdeltas[merge_id].added_edges
 
-    # meta-operations are connected components according to the above graph
-    _, labels = connected_components(product, directed=False)
+# %%
 
-    meta_operation_map = {}
-    for label in np.unique(labels):
-        meta_operation_map[label] = node_edit_indicators.columns[
-            labels == label
-        ].tolist()
+split_details = details[str(split_id)]
+removed_edges = split_details["removed_edges"]
+split_row = change_log.loc[split_id]
+x = split_row["timestamp"]
 
-    # for each meta-operation, combine the deltas of the operations that make it up
-    networkdeltas_by_meta_operation = {}
-    for meta_operation_id, operation_ids in meta_operation_map.items():
-        meta_operation_id = int(meta_operation_id)
-        deltas = [networkdeltas[operation_id] for operation_id in operation_ids]
-        meta_networkdelta = combine_deltas(deltas)
-        networkdeltas_by_meta_operation[meta_operation_id] = meta_networkdelta
+timestamp = datetime.datetime.fromtimestamp(x / 1000, pytz.UTC)
+delta = datetime.timedelta(microseconds=1)
 
-    return networkdeltas_by_meta_operation, meta_operation_map
+nodes_removed = np.unique(np.concatenate([list(edge) for edge in removed_edges]))
+
+pre_l2_ids = client.chunkedgraph.get_roots(
+    nodes_removed, stop_layer=2, timestamp=timestamp - delta
+)
+post_l2_ids = client.chunkedgraph.get_roots(
+    nodes_removed, stop_layer=2, timestamp=timestamp + delta
+)
+
+# %%
+pre_map = dict(zip(nodes_removed, pre_l2_ids))
+
+# %%
+
+removed_edges = np.array(removed_edges)
+removed_l2_edges = np.vectorize(lambda x: pre_map[x])(removed_edges)
+
+
+# %%
+networkdeltas[split_id].removed_edges
