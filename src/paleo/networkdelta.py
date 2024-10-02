@@ -1,9 +1,28 @@
 import json
 import pprint
+from typing import Collection
+
 import pandas as pd
 
 
 class NetworkDelta:
+    """
+    A class to represent a change to a network.
+
+    Attributes
+    ----------
+    removed_nodes :
+        IDs of nodes that were removed by this operation.
+    added_nodes :
+        IDs of nodes that were added by this operation.
+    removed_edges :
+        Edges that were removed by this operation.
+    added_edges :
+        Edges that were added by this operation.
+    metadata :
+        A dictionary of metadata about the operation.
+    """
+
     def __init__(
         self,
         removed_nodes: pd.DataFrame,
@@ -24,13 +43,17 @@ class NetworkDelta:
         rep += f"   added_nodes: {self.added_nodes.shape[0]},\n"
         rep += f"   removed_edges: {self.removed_edges.shape[0]},\n"
         rep += f"   added_edges: {self.added_edges.shape[0]},\n"
-        rep += "   metadata: {\n"
-        rep += " " + pprint.pformat(self.metadata, indent=6)[1:-1]
-        rep += "\n   }\n"
-        rep += ")"
+        if len(self.metadata) > 0:
+            rep += "   metadata: {\n"
+            rep += " " + pprint.pformat(self.metadata, indent=6)[1:-1]
+            rep += "\n   }\n"
+            rep += ")"
+        else:
+            rep += "   metadata: {}\n"
+            rep += ")"
         return rep
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         out = dict(
             removed_nodes=self.removed_nodes.index.to_list(),
             added_nodes=self.added_nodes.index.to_list(),
@@ -40,7 +63,7 @@ class NetworkDelta:
         )
         return out
 
-    def to_json(self):
+    def to_json(self) -> str:
         return json.dumps(self.to_dict())
 
     @classmethod
@@ -71,10 +94,18 @@ class NetworkDelta:
             return False
         if not self.added_edges.equals(other.added_edges):
             return False
+        if self.metadata != other.metadata:
+            return False
         return True
 
+    def __ne__(self, other: "NetworkDelta") -> bool:
+        return not self.__eq__(other)
 
-def combine_deltas(deltas):
+    def __add__(self, other: "NetworkDelta") -> "NetworkDelta":
+        return combine_deltas([self, other])
+
+
+def combine_deltas(deltas: Collection[NetworkDelta]) -> NetworkDelta:
     total_added_nodes = pd.concat(
         [delta.added_nodes for delta in deltas], verify_integrity=True
     )

@@ -19,6 +19,31 @@ edits = get_level2_edits(
 )
 
 # %%
+edits
+
+# %%
 edits[9028]
+
+# %%
+edits[25672]
+
+# %%
+edits[9028] + edits[25672]
+
+# %%
+
+from paleo import get_metaedits
+
+metaedits, metaedit_mapping = get_metaedits(edits)
+
+# %%
+member_edits = metaedit_mapping[23]
+
+# %%
+metaedits[23].added_nodes
+
+# %%
+for edit in member_edits:
+    print(list(edits[edit].added_nodes.index))
 
 # %%

@@ -4,11 +4,13 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from requests import HTTPError
+from scipy.sparse import csr_array
+from scipy.sparse.csgraph import connected_components
 from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
 
-from .networkdelta import NetworkDelta
+from .networkdelta import NetworkDelta, combine_deltas
 
 Number = Union[int, float, np.number]
 Integer = Union[int, np.integer]
@@ -135,6 +137,8 @@ def get_level2_edits(
     change_log["is_filtered"] = False
     change_log.loc[filtered_change_log.index, "is_filtered"] = True
 
+    seg_resolution = client.chunkedgraph.base_resolution
+
     def _get_info_for_operation(operation_id):
         row = change_log.loc[operation_id]
 
@@ -142,7 +146,7 @@ def get_level2_edits(
         after_root_ids = row["roots"]
 
         point_in_cg = np.array(row["sink_coords"][0])
-        seg_resolution = client.chunkedgraph.base_resolution
+
         point_in_nm = point_in_cg * seg_resolution
 
         if bounds_halfwidth is None:
@@ -194,7 +198,11 @@ def get_level2_edits(
             metadata=metadata_dict,
         )
 
-    with tqdm_joblib(total=len(change_log.index), disable=not verbose) as progress_bar:
+    with tqdm_joblib(
+        total=len(change_log.index),
+        disable=not verbose,
+        desc="Extracting level2 edits",
+    ):
         networkdeltas_by_operation = Parallel(n_jobs=-1)(
             delayed(_get_info_for_operation)(operation_id)
             for operation_id in change_log.index
@@ -203,3 +211,52 @@ def get_level2_edits(
     networkdeltas_by_operation = dict(zip(change_log.index, networkdeltas_by_operation))
 
     return networkdeltas_by_operation
+
+
+def get_metaedits(
+    networkdeltas: dict[Integer, NetworkDelta],
+) -> dict[Integer, NetworkDelta]:
+    # find the nodes that are modified in any way by each operation
+    mod_sets = {}
+    for edit_id, delta in networkdeltas.items():
+        mod_set = []
+        mod_set += delta.added_nodes.index.tolist()
+        mod_set += delta.removed_nodes.index.tolist()
+        mod_set += delta.added_edges["source"].tolist()
+        mod_set += delta.added_edges["target"].tolist()
+        mod_set += delta.removed_edges["source"].tolist()
+        mod_set += delta.removed_edges["target"].tolist()
+        mod_set = np.unique(mod_set)
+        mod_sets[edit_id] = mod_set
+
+    # make an incidence matrix of which nodes are modified by which operations
+    index = np.unique(np.concatenate(list(mod_sets.values())))
+    node_edit_indicators = pd.DataFrame(
+        index=index, columns=networkdeltas.keys(), data=False
+    )
+    for edit_id, mod_set in mod_sets.items():
+        node_edit_indicators.loc[mod_set, edit_id] = True
+
+    # this inner product matrix tells us which operations are connected with at least
+    # one overlapping node in common
+    X = csr_array(node_edit_indicators.values.astype(int))
+    product = X.T @ X
+
+    # meta-operations are connected components according to the above graph
+    _, labels = connected_components(product, directed=False)
+
+    meta_operation_map = {}
+    for label in np.unique(labels):
+        meta_operation_map[label] = node_edit_indicators.columns[
+            labels == label
+        ].tolist()
+
+    # for each meta-operation, combine the deltas of the operations that make it up
+    networkdeltas_by_meta_operation = {}
+    for meta_operation_id, operation_ids in meta_operation_map.items():
+        meta_operation_id = int(meta_operation_id)
+        deltas = [networkdeltas[operation_id] for operation_id in operation_ids]
+        meta_networkdelta = combine_deltas(deltas)
+        networkdeltas_by_meta_operation[meta_operation_id] = meta_networkdelta
+
+    return networkdeltas_by_meta_operation, meta_operation_map
