@@ -482,3 +482,38 @@ def get_metaedits(
         networkdeltas_by_meta_operation[meta_operation_id] = meta_networkdelta
 
     return networkdeltas_by_meta_operation, meta_operation_map
+
+
+def get_metadata_table(operation_ids=None, root_ids=None, client=None):
+    """Retrieve metadata for a list of operations or root IDs.
+
+    NOTE: aspirational, not yet implemented.
+
+    Parameters
+    ----------
+    operation_ids : list of int, optional
+        The operation IDs to retrieve metadata for.
+    root_ids : list of int, optional
+        The root IDs to retrieve metadata for.
+    client : CAVEclient, optional
+        The CAVEclient instance to use.
+
+    Returns
+    -------
+    pd.DataFrame
+        The metadata for the operations or root IDs. Metadata includes:
+
+        - `operation_id`: The operation ID.
+        - `timestamp`: The timestamp of the operation.
+        - `location`: The approximate [x,y,z] location of the operation in nanometers.
+        - `volume_added`: The volume added by the operation in cubic nanometers.
+        - `volume_removed`: The volume removed by the operation in cubic nanometers.
+        - `n_added_nodes`: The number of level2 nodes added by the operation.
+        - `n_removed_nodes`: The number of level2 nodes removed by the operation.
+        - `n_modified_nodes`: The number of level2 nodes modified by the operation.
+        - `n_added_edges`: The number of level2 edges added by the operation.
+        - `n_removed_edges`: The number of level2 edges removed by the operation.
+        - `n_modified_edges`: The number of level2 edges modified by the operation.
+
+    """
+    raise NotImplementedError("This function is not yet implemented.")
