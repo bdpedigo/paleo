@@ -1,4 +1,6 @@
 # %%
+import time
+
 from caveclient import CAVEclient
 from paleo import get_detailed_change_log
 
@@ -16,74 +18,41 @@ edit_id
 # %%
 from paleo import get_operation_level2_edit
 
+currtime = time.time()
 l2_edit = get_operation_level2_edit(edit_id, client)
+print(f"{time.time() - currtime:.3f} seconds elapsed.")
 
 # %%
-from paleo import get_operations_level2_edits
-
-l2_edits = get_operations_level2_edits(change_log.index[:50], client)
-
-# %%
-from datetime import datetime, timedelta
-
-import numpy as np
-
-seg_resolution = client.chunkedgraph.base_resolution
-
-details = client.chunkedgraph.get_operation_details([edit_id])[str(edit_id)]
-roots = details["roots"]
-ts = datetime.fromisoformat(details["timestamp"])
-delta = timedelta(microseconds=1)
-pre_ts = ts - delta
-post_ts = ts + delta
-
-maps = client.chunkedgraph.get_past_ids(roots, timestamp_past=pre_ts)
-old_roots = []
-for root in roots:
-    old_roots.extend(maps["past_id_map"][root])
-
-point_in_cg = np.array(details["sink_coords"][0])
-
-point_in_nm = point_in_cg * seg_resolution
-
-# %%
-import time
-
 from paleo import get_operations_level2_edits
 
 currtime = time.time()
-
-get_operations_level2_edits(change_log.index.to_list(), client)
+l2_edits = get_operations_level2_edits(change_log.index, client)
 print(f"{time.time() - currtime:.3f} seconds elapsed.")
 
+# %%
+from paleo import get_root_level2_edits
+
+currtime = time.time()
+l2_edits = get_root_level2_edits(root_id, client)
+print(f"{time.time() - currtime:.3f} seconds elapsed.")
 
 # %%
-from paleo import get_level2_edits
-
-edits = get_level2_edits(
-    root_id,
-    client,
-    verbose=True,
-    bounds_halfwidth=20_000,
-)
+l2_edits
 
 # %%
-edits
+l2_edits[9028]
 
 # %%
-edits[9028]
+l2_edits[25672]
 
 # %%
-edits[25672]
-
-# %%
-edits[9028] + edits[25672]
+l2_edits[9028] + l2_edits[25672]
 
 # %%
 
 from paleo import get_metaedits
 
-metaedits, metaedit_mapping = get_metaedits(edits)
+metaedits, metaedit_mapping = get_metaedits(l2_edits)
 
 # %%
 member_edits = metaedit_mapping[23]
@@ -93,6 +62,6 @@ metaedits[23].added_nodes
 
 # %%
 for edit in member_edits:
-    print(list(edits[edit].added_nodes.index))
+    print(list(l2_edits[edit].added_nodes.index))
 
 # %%

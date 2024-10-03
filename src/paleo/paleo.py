@@ -135,8 +135,8 @@ def get_operation_level2_edit(
     after_root_ids: Optional[Collection[int]] = None,
     pre_timestamp: Optional[datetime] = None,
     point: Optional[np.ndarray] = None,
-    bounds_halfwidth: Optional[Number] = 20_000,
-    metadata: bool = True,
+    radius: Optional[Number] = 20_000,
+    metadata: bool = False,
 ) -> NetworkDelta:
     if before_root_ids is None and pre_timestamp is not None:
         maps = client.chunkedgraph.get_past_ids(
@@ -149,7 +149,7 @@ def get_operation_level2_edit(
     # if the point to center on is not provided, or if there is no list of ids that
     # came before this edit, then we need to look them up
     if (
-        (point is None and bounds_halfwidth is not None)
+        (point is None and radius is not None)
         or (after_root_ids is None)
         or (before_root_ids is None)  # implies timestamp is None because of the above
     ):
@@ -170,11 +170,11 @@ def get_operation_level2_edit(
             for root in after_root_ids:
                 before_root_ids.extend(maps["past_id_map"][root])
 
-    if bounds_halfwidth is None:
+    if radius is None:
         bbox_cg = None
     else:
         bbox_cg = _make_bbox(
-            bounds_halfwidth, point, client.chunkedgraph.base_resolution
+            radius, point, client.chunkedgraph.base_resolution
         ).T
 
     # grabbing the union of before/after nodes/edges
@@ -222,8 +222,8 @@ def get_operations_level2_edits(
     operation_ids: Union[Collection[Integer], Integer],
     client: CAVEclient,
     verbose: bool = True,
-    bounds_halfwidth: Number = 20_000,
-    metadata: bool = True,
+    radius: Number = 20_000,
+    metadata: bool = False,
     n_jobs: int = -1,
 ) -> NetworkDelta:
     if isinstance(operation_ids, (int, np.integer)):
@@ -260,7 +260,7 @@ def get_operations_level2_edits(
                 "before_root_ids": None,
                 "after_root_ids": new_roots_by_operation[operation_id],
                 "pre_timestamp": pre_timestamps_by_operation[operation_id],
-                "bounds_halfwidth": bounds_halfwidth,
+                "radius": radius,
                 "metadata": metadata,
             }
         )
@@ -288,20 +288,42 @@ def get_root_level2_edits(
     root_id: Integer,
     client: CAVEclient,
     verbose: bool = True,
-    bounds_halfwidth: Number = 20_000,
-    metadata: bool = True,
+    radius: Number = 20_000,
+    metadata: bool = False,
+    n_jobs: int = -1,
 ) -> dict[Integer, NetworkDelta]:
     change_log = get_detailed_change_log(root_id, client, filtered=False)
 
-    with tqdm_joblib(
-        total=len(change_log.index),
-        disable=not verbose,
-        desc="Extracting level2 edits",
-    ):
-        networkdeltas_by_operation = Parallel(n_jobs=-1)(
-            delayed(get_operation_level2_edit)(operation_id, client)
-            for operation_id in change_log.index
+    inputs_by_operation = []
+    for operation_id, row in change_log.iterrows():
+        inputs_by_operation.append(
+            {
+                "operation_id": operation_id,
+                "client": client,
+                "before_root_ids": row["before_root_ids"],
+                "after_root_ids": row["roots"],
+                "pre_timestamp": None,  # not needed since we know roots before/after
+                "radius": radius,
+                "metadata": metadata,
+            }
         )
+
+    if n_jobs != 1:
+        with tqdm_joblib(
+            total=len(inputs_by_operation),
+            disable=not verbose,
+            desc="Extracting level2 edits",
+        ):
+            networkdeltas_by_operation = Parallel(n_jobs=-1)(
+                delayed(get_operation_level2_edit)(**inputs)
+                for inputs in inputs_by_operation
+            )
+    else:
+        networkdeltas_by_operation = []
+        for inputs in tqdm_joblib(
+            inputs_by_operation, disable=not verbose, desc="Extracting level2 edits"
+        ):
+            networkdeltas_by_operation.append(get_operation_level2_edit(**inputs))
 
     networkdeltas_by_operation = dict(zip(change_log.index, networkdeltas_by_operation))
 
