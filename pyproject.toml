@@ -25,7 +25,9 @@ requires = ["hatchling"]
 [tool.uv]
 dev-dependencies = [
     "ipykernel>=6.29.5",
+    "mkdocs-include-markdown-plugin>=6.2.2",
     "mkdocs-material>=9.5.39",
+    "mkdocstrings[python]>=0.26.1",
 ]
 
 [tool.uv.sources]

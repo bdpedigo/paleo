@@ -19,34 +19,6 @@ type Integer = Union[int, np.integer]
 TIMESTAMP_DELTA = timedelta(microseconds=1)
 
 
-def get_detailed_change_log(
-    root_id: int, client: CAVEclient, filtered: bool = True
-) -> pd.DataFrame:
-    cg = client.chunkedgraph
-    change_log = cg.get_tabular_change_log(root_id, filtered=filtered)[root_id]
-
-    change_log.set_index("operation_id", inplace=True)
-    change_log.sort_values("timestamp", inplace=True)
-    change_log.drop(columns=["timestamp"], inplace=True)
-
-    chunk_size = 500  # not sure exactly what the limit is here
-    details = {}
-    for i in range(0, len(change_log), chunk_size):
-        sub_details = cg.get_operation_details(
-            change_log.index[i : i + chunk_size].to_list()
-        )
-        details.update(sub_details)
-    assert len(details) == len(change_log)
-
-    details = pd.DataFrame(details).T
-    details.index.name = "operation_id"
-    details.index = details.index.astype(int)
-
-    change_log = change_log.join(details)
-
-    return change_log
-
-
 def _get_changed_edges(
     before_edges: pd.DataFrame, after_edges: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -128,19 +100,94 @@ def _get_all_nodes_edges(
     return all_nodes, all_edges
 
 
+def get_detailed_change_log(
+    root_id: int, client: CAVEclient, filtered: bool = True
+) -> pd.DataFrame:
+    """Get a detailed change log for a root ID.
+
+    Parameters
+    ----------
+    root_id :
+        The root ID to get the change log for.
+    client :
+        The CAVEclient instance to use.
+    filtered :
+        Whether to filter the change log to only include changes which affect the
+        final state of the root ID.
+
+    Returns
+    -------
+    :
+        A detailed change log for the root ID.
+    """
+    cg = client.chunkedgraph
+    change_log = cg.get_tabular_change_log(root_id, filtered=filtered)[root_id]
+
+    change_log.set_index("operation_id", inplace=True)
+    change_log.sort_values("timestamp", inplace=True)
+    change_log.drop(columns=["timestamp"], inplace=True)
+
+    chunk_size = 500  # not sure exactly what the limit is here
+    details = {}
+    for i in range(0, len(change_log), chunk_size):
+        sub_details = cg.get_operation_details(
+            change_log.index[i : i + chunk_size].to_list()
+        )
+        details.update(sub_details)
+    assert len(details) == len(change_log)
+
+    details = pd.DataFrame(details).T
+    details.index.name = "operation_id"
+    details.index = details.index.astype(int)
+
+    change_log = change_log.join(details)
+
+    return change_log
+
+
 def get_operation_level2_edit(
     operation_id: int,
     client: CAVEclient,
     before_root_ids: Optional[Collection[int]] = None,
     after_root_ids: Optional[Collection[int]] = None,
-    pre_timestamp: Optional[datetime] = None,
+    timestamp: Optional[datetime] = None,
     point: Optional[np.ndarray] = None,
-    radius: Optional[Number] = 20_000,
+    radius: Number = 20_000,
     metadata: bool = False,
 ) -> NetworkDelta:
-    if before_root_ids is None and pre_timestamp is not None:
+    """Extract changes to the level2 graph for a specific operation.
+
+    Parameters
+    ----------
+    operation_id :
+        The operation ID to extract changes for.
+    client :
+        The CAVEclient instance to use.
+    before_root_ids :
+        The root ID(s) that were involved in the operation prior to it happening. If
+        None, these will be looked up.
+    after_root_ids :
+        The root ID(s) that were created by the operation. If None, these will be
+        looked up.
+    timestamp :
+        The timestamp of the operation. Only used if `before_root_ids` is not provided.
+        If None, this will be looked up.
+    point :
+        The point to center the bounding box on. If None, will compare the entire
+        level2 graphs of the objects before and after the operation.
+    radius :
+        The radius of the bounding box to use.
+    metadata :
+        Whether to include metadata about the changes in the output.
+
+    Returns
+    -------
+    :
+        The changes to the level2 graph from this operation.
+    """
+    if before_root_ids is None and timestamp is not None:
         maps = client.chunkedgraph.get_past_ids(
-            after_root_ids, timestamp_past=pre_timestamp
+            after_root_ids, timestamp_past=timestamp - TIMESTAMP_DELTA
         )
         before_root_ids = []
         for root in after_root_ids:
@@ -173,9 +220,7 @@ def get_operation_level2_edit(
     if radius is None:
         bbox_cg = None
     else:
-        bbox_cg = _make_bbox(
-            radius, point, client.chunkedgraph.base_resolution
-        ).T
+        bbox_cg = _make_bbox(radius, point, client.chunkedgraph.base_resolution).T
 
     # grabbing the union of before/after nodes/edges
     # NOTE: this is where all the compute time comes from
@@ -221,11 +266,34 @@ def get_operation_level2_edit(
 def get_operations_level2_edits(
     operation_ids: Union[Collection[Integer], Integer],
     client: CAVEclient,
-    verbose: bool = True,
     radius: Number = 20_000,
     metadata: bool = False,
     n_jobs: int = -1,
+    verbose: bool = True,
 ) -> NetworkDelta:
+    """Extract changes to the level2 graph for a list of operations.
+
+
+    Parameters
+    ----------
+    operation_ids :
+        The operation ID(s) to extract changes for.
+    client :
+        The CAVEclient instance to use.
+    radius :
+        The radius of the bounding box to use.
+    metadata :
+        Whether to include metadata about the changes in the output.
+    n_jobs :
+        The number of jobs to run in parallel. If -1, will use all available cores.
+    verbose :
+        Whether to display a progress bar.
+
+    Returns
+    -------
+    :
+        The changes to the level2 graph from these operations
+    """
     if isinstance(operation_ids, (int, np.integer)):
         operation_ids = [operation_ids]
     if not isinstance(operation_ids, list):
@@ -246,11 +314,6 @@ def get_operations_level2_edits(
         for operation_id, details in details_by_operation.items()
     }
 
-    pre_timestamps_by_operation = {
-        operation_id: timestamps_by_operation[operation_id] - TIMESTAMP_DELTA
-        for operation_id in operation_ids
-    }
-
     inputs_by_operation = []
     for operation_id in operation_ids:
         inputs_by_operation.append(
@@ -259,7 +322,7 @@ def get_operations_level2_edits(
                 "client": client,
                 "before_root_ids": None,
                 "after_root_ids": new_roots_by_operation[operation_id],
-                "pre_timestamp": pre_timestamps_by_operation[operation_id],
+                "timestamp": timestamps_by_operation[operation_id],
                 "radius": radius,
                 "metadata": metadata,
             }
@@ -287,11 +350,33 @@ def get_operations_level2_edits(
 def get_root_level2_edits(
     root_id: Integer,
     client: CAVEclient,
-    verbose: bool = True,
     radius: Number = 20_000,
     metadata: bool = False,
     n_jobs: int = -1,
+    verbose: bool = True,
 ) -> dict[Integer, NetworkDelta]:
+    """Extract changes to the level2 graph for all operations on a root.
+
+    Parameters
+    ----------
+    root_id :
+        The root ID to extract changes for.
+    client :
+        The CAVEclient instance to use.
+    radius :
+        The radius of the bounding box to use.
+    metadata :
+        Whether to include metadata about the changes in the output.
+    n_jobs :
+        The number of jobs to run in parallel. If -1, will use all available cores.
+    verbose :
+        Whether to display a progress bar.
+
+    Returns
+    -------
+    :
+        The changes to the level2 graph from each operation
+    """
     change_log = get_detailed_change_log(root_id, client, filtered=False)
 
     inputs_by_operation = []
@@ -302,7 +387,7 @@ def get_root_level2_edits(
                 "client": client,
                 "before_root_ids": row["before_root_ids"],
                 "after_root_ids": row["roots"],
-                "pre_timestamp": None,  # not needed since we know roots before/after
+                "timestamp": None,  # not needed since we know roots before/after
                 "radius": radius,
                 "metadata": metadata,
             }
@@ -332,7 +417,27 @@ def get_root_level2_edits(
 
 def get_metaedits(
     networkdeltas: dict[Integer, NetworkDelta],
-) -> dict[Integer, NetworkDelta]:
+) -> tuple[dict[Integer, NetworkDelta], dict[Integer, list[Integer]]]:
+    """Combine edits into meta-edits based on shared nodes.
+
+    Meta-edits are groups of one or more edits which affected a local region in the
+    chunkedgraph. More specifically, they are defined as groups of edits which are
+    connected components in a graph where nodes are edits and edges are shared nodes
+    between edits.
+
+    Parameters
+    ----------
+    networkdeltas :
+        The changes to the level2 graph from each operation.
+
+    Returns
+    -------
+    :
+        The changes to the level2 graph from each meta-operation.
+    :
+        A mapping of meta-operation IDs to the operation IDs that make them up.
+
+    """
     # find the nodes that are modified in any way by each operation
     mod_sets = {}
     for edit_id, delta in networkdeltas.items():
