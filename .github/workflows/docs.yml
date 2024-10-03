@@ -45,6 +45,7 @@ jobs:
         run: uv python install
       - name: Install the project
         run: uv sync --all-extras --dev
+      - run: uv pip install mkdocs-material
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
       - uses: actions/cache@v4
         with:
