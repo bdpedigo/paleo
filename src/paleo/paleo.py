@@ -1,4 +1,5 @@
-from typing import Optional, Union
+from datetime import datetime, timedelta
+from typing import Collection, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -12,8 +13,10 @@ from caveclient import CAVEclient
 
 from .networkdelta import NetworkDelta, combine_deltas
 
-Number = Union[int, float, np.number]
-Integer = Union[int, np.integer]
+type Number = Union[int, float, np.number]
+type Integer = Union[int, np.integer]
+
+TIMESTAMP_DELTA = timedelta(microseconds=1)
 
 
 def get_detailed_change_log(
@@ -60,8 +63,9 @@ def _get_changed_edges(
 
 
 def _make_bbox(
-    bbox_halfwidth: Number, point_in_nm: np.ndarray, seg_resolution: np.ndarray
+    bbox_halfwidth: Number, point_in_seg: np.ndarray, seg_resolution: np.ndarray
 ) -> np.ndarray:
+    point_in_nm = point_in_seg * seg_resolution
     x_center, y_center, z_center = point_in_nm
 
     x_start = x_center - bbox_halfwidth
@@ -79,8 +83,8 @@ def _make_bbox(
 
 
 def _get_level2_nodes_edges(
-    root_id: int, client: CAVEclient, bounds: Optional[np.ndarray] = None
-):
+    root_id: Integer, client: CAVEclient, bounds: Optional[np.ndarray] = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     try:
         edgelist = client.chunkedgraph.level2_chunk_graph(root_id, bounds=bounds)
         nodelist = set()
@@ -112,7 +116,7 @@ def _get_level2_nodes_edges(
 
 def _get_all_nodes_edges(
     root_ids: Number, client: CAVEclient, bounds: Optional[np.ndarray] = None
-):
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     all_nodes = []
     all_edges = []
     for root_id in root_ids:
@@ -124,89 +128,170 @@ def _get_all_nodes_edges(
     return all_nodes, all_edges
 
 
-def get_operation_level2_edits(
-    operation_id: Integer,
+def get_operation_level2_edit(
+    operation_id: int,
+    client: CAVEclient,
+    before_root_ids: Optional[Collection[int]] = None,
+    after_root_ids: Optional[Collection[int]] = None,
+    pre_timestamp: Optional[datetime] = None,
+    point: Optional[np.ndarray] = None,
+    bounds_halfwidth: Optional[Number] = 20_000,
+    metadata: bool = True,
+) -> NetworkDelta:
+    if before_root_ids is None and pre_timestamp is not None:
+        maps = client.chunkedgraph.get_past_ids(
+            after_root_ids, timestamp_past=pre_timestamp
+        )
+        before_root_ids = []
+        for root in after_root_ids:
+            before_root_ids.extend(maps["past_id_map"][root])
+
+    # if the point to center on is not provided, or if there is no list of ids that
+    # came before this edit, then we need to look them up
+    if (
+        (point is None and bounds_halfwidth is not None)
+        or (after_root_ids is None)
+        or (before_root_ids is None)  # implies timestamp is None because of the above
+    ):
+        details = client.chunkedgraph.get_operation_details([operation_id])[
+            str(operation_id)
+        ]
+        if point is None:
+            point = np.array(details["sink_coords"][0])
+        if after_root_ids is None:
+            after_root_ids = details["roots"]
+        if before_root_ids is None:
+            timestamp = datetime.fromisoformat(details["timestamp"])
+            pre_timestamp = timestamp - TIMESTAMP_DELTA
+            maps = client.chunkedgraph.get_past_ids(
+                after_root_ids, timestamp_past=pre_timestamp
+            )
+            before_root_ids = []
+            for root in after_root_ids:
+                before_root_ids.extend(maps["past_id_map"][root])
+
+    if bounds_halfwidth is None:
+        bbox_cg = None
+    else:
+        bbox_cg = _make_bbox(
+            bounds_halfwidth, point, client.chunkedgraph.base_resolution
+        ).T
+
+    # grabbing the union of before/after nodes/edges
+    # NOTE: this is where all the compute time comes from
+    all_before_nodes, all_before_edges = _get_all_nodes_edges(
+        before_root_ids, client, bounds=bbox_cg
+    )
+    all_after_nodes, all_after_edges = _get_all_nodes_edges(
+        after_root_ids, client, bounds=bbox_cg
+    )
+
+    # finding the nodes that were added or removed, simple set logic
+    added_nodes_index = all_after_nodes.index.difference(all_before_nodes.index)
+    added_nodes = all_after_nodes.loc[added_nodes_index]
+    removed_nodes_index = all_before_nodes.index.difference(all_after_nodes.index)
+    removed_nodes = all_before_nodes.loc[removed_nodes_index]
+
+    # finding the edges that were added or removed, simple set logic again
+    removed_edges, added_edges = _get_changed_edges(all_before_edges, all_after_edges)
+
+    # keep track of what changed
+    if metadata:
+        metadata_dict = {
+            "operation_id": operation_id,
+            "n_added_nodes": len(added_nodes),
+            "n_removed_nodes": len(removed_nodes),
+            "n_modified_nodes": len(added_nodes) + len(removed_nodes),
+            "n_added_edges": len(added_edges),
+            "n_removed_edges": len(removed_edges),
+            "n_modified_edges": len(added_edges) + len(removed_edges),
+        }
+    else:
+        metadata_dict = {}
+
+    return NetworkDelta(
+        removed_nodes,
+        added_nodes,
+        removed_edges,
+        added_edges,
+        metadata=metadata_dict,
+    )
+
+
+def get_operations_level2_edits(
+    operation_ids: Union[Collection[Integer], Integer],
     client: CAVEclient,
     verbose: bool = True,
     bounds_halfwidth: Number = 20_000,
     metadata: bool = True,
+    n_jobs: int = -1,
 ) -> NetworkDelta:
-    pass
+    if isinstance(operation_ids, (int, np.integer)):
+        operation_ids = [operation_ids]
+    if not isinstance(operation_ids, list):
+        try:
+            operation_ids = list(operation_ids)
+        except TypeError:
+            raise TypeError(
+                f"`operation_ids` could not be coerced to a list: {operation_ids}"
+            )
+
+    details_by_operation = client.chunkedgraph.get_operation_details(operation_ids)
+    new_roots_by_operation = {
+        int(operation_id): details["roots"]
+        for operation_id, details in details_by_operation.items()
+    }
+    timestamps_by_operation = {
+        int(operation_id): datetime.fromisoformat(details["timestamp"])
+        for operation_id, details in details_by_operation.items()
+    }
+
+    pre_timestamps_by_operation = {
+        operation_id: timestamps_by_operation[operation_id] - TIMESTAMP_DELTA
+        for operation_id in operation_ids
+    }
+
+    inputs_by_operation = []
+    for operation_id in operation_ids:
+        inputs_by_operation.append(
+            {
+                "operation_id": operation_id,
+                "client": client,
+                "before_root_ids": None,
+                "after_root_ids": new_roots_by_operation[operation_id],
+                "pre_timestamp": pre_timestamps_by_operation[operation_id],
+                "bounds_halfwidth": bounds_halfwidth,
+                "metadata": metadata,
+            }
+        )
+    if n_jobs != 1:
+        with tqdm_joblib(
+            total=len(inputs_by_operation),
+            disable=not verbose,
+            desc="Extracting level2 edits",
+        ):
+            networkdeltas = Parallel(n_jobs=-1)(
+                delayed(get_operation_level2_edit)(**inputs)
+                for inputs in inputs_by_operation
+            )
+    else:
+        networkdeltas = []
+        for inputs in tqdm_joblib(
+            inputs_by_operation, disable=not verbose, desc="Extracting level2 edits"
+        ):
+            networkdeltas.append(get_operation_level2_edit(**inputs))
+
+    return networkdeltas
 
 
-def get_level2_edits(
+def get_root_level2_edits(
     root_id: Integer,
     client: CAVEclient,
     verbose: bool = True,
     bounds_halfwidth: Number = 20_000,
     metadata: bool = True,
 ) -> dict[Integer, NetworkDelta]:
-    # TODO refactor this into CAVEclient
     change_log = get_detailed_change_log(root_id, client, filtered=False)
-    filtered_change_log = get_detailed_change_log(root_id, client, filtered=True)
-    change_log["is_filtered"] = False
-    change_log.loc[filtered_change_log.index, "is_filtered"] = True
-
-    seg_resolution = client.chunkedgraph.base_resolution
-
-    def _get_info_for_operation(operation_id):
-        row = change_log.loc[operation_id]
-
-        before_root_ids = row["before_root_ids"]
-        after_root_ids = row["roots"]
-
-        point_in_cg = np.array(row["sink_coords"][0])
-
-        point_in_nm = point_in_cg * seg_resolution
-
-        if bounds_halfwidth is None:
-            bbox_cg = None
-        else:
-            bbox_cg = _make_bbox(bounds_halfwidth, point_in_nm, seg_resolution).T
-
-        # grabbing the union of before/after nodes/edges
-        # NOTE: this is where all the compute time comes from
-        all_before_nodes, all_before_edges = _get_all_nodes_edges(
-            before_root_ids, client, bounds=bbox_cg
-        )
-        all_after_nodes, all_after_edges = _get_all_nodes_edges(
-            after_root_ids, client, bounds=bbox_cg
-        )
-
-        # finding the nodes that were added or removed, simple set logic
-        added_nodes_index = all_after_nodes.index.difference(all_before_nodes.index)
-        added_nodes = all_after_nodes.loc[added_nodes_index]
-        removed_nodes_index = all_before_nodes.index.difference(all_after_nodes.index)
-        removed_nodes = all_before_nodes.loc[removed_nodes_index]
-
-        # finding the edges that were added or removed, simple set logic again
-        removed_edges, added_edges = _get_changed_edges(
-            all_before_edges, all_after_edges
-        )
-
-        # keep track of what changed
-        if metadata:
-            metadata_dict = {
-                **row.to_dict(),
-                "operation_id": operation_id,
-                "root_id": root_id,
-                "n_added_nodes": len(added_nodes),
-                "n_removed_nodes": len(removed_nodes),
-                "n_modified_nodes": len(added_nodes) + len(removed_nodes),
-                "n_added_edges": len(added_edges),
-                "n_removed_edges": len(removed_edges),
-                "n_modified_edges": len(added_edges) + len(removed_edges),
-            }
-        else:
-            metadata_dict = {}
-
-        return NetworkDelta(
-            removed_nodes,
-            added_nodes,
-            removed_edges,
-            added_edges,
-            metadata=metadata_dict,
-        )
 
     with tqdm_joblib(
         total=len(change_log.index),
@@ -214,7 +299,7 @@ def get_level2_edits(
         desc="Extracting level2 edits",
     ):
         networkdeltas_by_operation = Parallel(n_jobs=-1)(
-            delayed(_get_info_for_operation)(operation_id)
+            delayed(get_operation_level2_edit)(operation_id, client)
             for operation_id in change_log.index
         )
 

@@ -9,7 +9,6 @@ import pytz
 from requests import HTTPError
 
 from caveclient import CAVEclient
-from paleo import get_level2_edits
 
 client = CAVEclient("minnie65_phase3_v1")
 
@@ -22,12 +21,22 @@ change_log = pd.DataFrame(change_log).set_index("operation_id")
 merge_id = change_log.index[0]
 split_id = change_log.index[1]
 
-# %%
 details = client.chunkedgraph.get_operation_details([merge_id, split_id])
 
 merge_details = details[str(merge_id)]
-added_edges = details[str(merge_id)]["added_edges"]
-nodes_affected = np.unique(np.concatenate([list(edge) for edge in added_edges]))
+added_supervoxel_edges = details[str(merge_id)]["added_edges"]
+print(added_supervoxel_edges)
+
+# %% [markdown]
+# For this edge, there is one supervoxel edge that is stored as "added".
+# We can map these modified nodes to their level2 ids at the time of the operation.
+
+# %%
+
+supervoxels_affected = np.unique(
+    np.concatenate([list(edge) for edge in added_supervoxel_edges])
+)
+
 merge_row = change_log.loc[merge_id]
 ts = merge_row["timestamp"]
 
@@ -35,11 +44,19 @@ timestamp = datetime.datetime.fromtimestamp(ts / 1000, pytz.UTC)
 delta = datetime.timedelta(microseconds=1)
 
 pre_l2_ids = client.chunkedgraph.get_roots(
-    nodes_affected, stop_layer=2, timestamp=timestamp - delta
+    supervoxels_affected, stop_layer=2, timestamp=timestamp - delta
 )
 post_l2_ids = client.chunkedgraph.get_roots(
-    nodes_affected, stop_layer=2, timestamp=timestamp + delta
+    supervoxels_affected, stop_layer=2, timestamp=timestamp + delta
 )
+
+print("Supervoxel IDs:", supervoxels_affected)
+print("L2 IDs pre operation:", pre_l2_ids)
+print("L2 IDs post operation:", post_l2_ids)
+
+# %% [markdown]
+# Compare this to what happens when we simply look at the level2 chunk graph in the region
+# around the edit before and after the operation.
 
 # %%
 
@@ -139,7 +156,6 @@ def _get_all_nodes_edges(
 def get_level2_edits(
     operataion_ids: list[int],
     client: CAVEclient,
-    verbose: bool = True,
     bounds_halfwidth: int = 20_000,
     metadata: bool = True,
 ) -> dict[int, NetworkDelta]:
@@ -149,9 +165,13 @@ def get_level2_edits(
         row = change_log.loc[operation_id]
 
         before_root_ids = row["before_root_ids"]
-        after_root_ids = row["roots"]
+        # after_root_ids = row["roots"]
+        details = client.chunkedgraph.get_operation_details([operation_id])[
+            str(operation_id)
+        ]
+        after_root_ids = details["roots"]
 
-        point_in_cg = np.array(row["sink_coords"][0])
+        point_in_cg = np.array(details["sink_coords"][0])
 
         point_in_nm = point_in_cg * seg_resolution
 
@@ -211,17 +231,22 @@ def get_level2_edits(
     return networkdeltas_by_operation
 
 
-# %%
+networkdeltas = get_level2_edits([merge_id, split_id], client)
 
-networkdeltas = get_level2_edits(root_id, client)
+print(networkdeltas[merge_id].added_edges.values)
 
-# %%
-networkdeltas[merge_id].added_edges
-
+# %% [markdown]
+# There are many more level2 graph edges that are added in the merge operation.
+#
+# Similarly if we look at a split, which actually does have more removed edges written
+# down:
 # %%
 
 split_details = details[str(split_id)]
 removed_edges = split_details["removed_edges"]
+print(np.array(removed_edges))
+
+# %%
 split_row = change_log.loc[split_id]
 x = split_row["timestamp"]
 
@@ -237,14 +262,11 @@ post_l2_ids = client.chunkedgraph.get_roots(
     nodes_removed, stop_layer=2, timestamp=timestamp + delta
 )
 
-# %%
 pre_map = dict(zip(nodes_removed, pre_l2_ids))
-
-# %%
 
 removed_edges = np.array(removed_edges)
 removed_l2_edges = np.vectorize(lambda x: pre_map[x])(removed_edges)
-
+print("Level2 edges removed:", removed_l2_edges)
 
 # %%
-networkdeltas[split_id].removed_edges
+print(networkdeltas[split_id].removed_edges.values)
