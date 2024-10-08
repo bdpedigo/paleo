@@ -1,3 +1,7 @@
+"""
+Examples
+========
+"""
 # %%
 import time
 

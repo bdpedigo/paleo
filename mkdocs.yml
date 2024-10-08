@@ -4,8 +4,8 @@ repo_url: https://github.com/bdpedigo/paleo/
 repo_name: bdpedigo/paleo
 edit_uri: edit/main/docs/
 nav:
-  - Home: index.md
-  - Examples: examples.md
+  - index.md
+  - Examples: examples.ipynb
   - Reference: reference.md
 theme:
   name: material
@@ -95,3 +95,7 @@ plugins:
             unwrap_annotated: false # https://mkdocstrings.github.io/python/usage/configuration/signatures/#unwrap_annotated
             heading_level: 1
             inherited_members: true
+  - glightbox
+  - mknotebooks:
+      enable_default_jupyter_cell_styling: true
+      enable_default_pandas_dataframe_styling: true

@@ -1,3 +1,4 @@
+import warnings
 from datetime import datetime, timedelta
 from typing import Collection, Optional, Union
 
@@ -7,6 +8,10 @@ from joblib import Parallel, delayed
 from requests import HTTPError
 from scipy.sparse import csr_array
 from scipy.sparse.csgraph import connected_components
+from tqdm import TqdmExperimentalWarning
+
+warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
+
 from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
@@ -270,7 +275,7 @@ def get_operations_level2_edits(
     metadata: bool = False,
     n_jobs: int = -1,
     verbose: bool = True,
-) -> NetworkDelta:
+) -> dict[Integer, NetworkDelta]:
     """Extract changes to the level2 graph for a list of operations.
 
 
@@ -340,10 +345,13 @@ def get_operations_level2_edits(
     else:
         networkdeltas = []
         for inputs in tqdm_joblib(
-            inputs_by_operation, disable=not verbose, desc="Extracting level2 edits"
+            inputs_by_operation,
+            disable=not verbose,
+            desc="Extracting level2 edits",
         ):
             networkdeltas.append(get_operation_level2_edit(**inputs))
-
+    
+    networkdeltas = dict(zip(operation_ids, networkdeltas))
     return networkdeltas
 
 
@@ -406,7 +414,9 @@ def get_root_level2_edits(
     else:
         networkdeltas_by_operation = []
         for inputs in tqdm_joblib(
-            inputs_by_operation, disable=not verbose, desc="Extracting level2 edits"
+            inputs_by_operation,
+            disable=not verbose,
+            desc="Extracting level2 edits",
         ):
             networkdeltas_by_operation.append(get_operation_level2_edit(**inputs))
 
