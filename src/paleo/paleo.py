@@ -35,17 +35,17 @@ def _get_changed_edges(
 
 
 def _make_bbox(
-    bbox_halfwidth: Number, point_in_seg: np.ndarray, seg_resolution: np.ndarray
+    bbox_radius: Number, point_in_seg: np.ndarray, seg_resolution: np.ndarray
 ) -> np.ndarray:
     point_in_nm = point_in_seg * seg_resolution
     x_center, y_center, z_center = point_in_nm
 
-    x_start = x_center - bbox_halfwidth
-    x_stop = x_center + bbox_halfwidth
-    y_start = y_center - bbox_halfwidth
-    y_stop = y_center + bbox_halfwidth
-    z_start = z_center - bbox_halfwidth
-    z_stop = z_center + bbox_halfwidth
+    x_start = x_center - bbox_radius
+    x_stop = x_center + bbox_radius
+    y_start = y_center - bbox_radius
+    y_stop = y_center + bbox_radius
+    z_start = z_center - bbox_radius
+    z_stop = z_center + bbox_radius
 
     start_point_cg = np.array([x_start, y_start, z_start]) / seg_resolution
     stop_point_cg = np.array([x_stop, y_stop, z_stop]) / seg_resolution
@@ -464,7 +464,7 @@ def get_metaedits(
     X = csr_array(node_edit_indicators.values.astype(int))
     product = X.T @ X
 
-    # meta-operations are connected components according to the above graph
+    # meta-operations are connected components in the above graph
     _, labels = connected_components(product, directed=False)
 
     meta_operation_map = {}
@@ -487,7 +487,8 @@ def get_metaedits(
 def get_metadata_table(operation_ids=None, root_ids=None, client=None):
     """Retrieve metadata for a list of operations or root IDs.
 
-    NOTE: aspirational, not yet implemented.
+    NOTE: aspirational, not yet implemented. To make this efficient, would probably need
+    a server-side implementation
 
     Parameters
     ----------
@@ -505,7 +506,7 @@ def get_metadata_table(operation_ids=None, root_ids=None, client=None):
 
         - `operation_id`: The operation ID.
         - `timestamp`: The timestamp of the operation.
-        - `location`: The approximate [x,y,z] location of the operation in nanometers.
+        - `location`: The approximate [x,y,z] centroid of the operation in nanometers.
         - `volume_added`: The volume added by the operation in cubic nanometers.
         - `volume_removed`: The volume removed by the operation in cubic nanometers.
         - `n_added_nodes`: The number of level2 nodes added by the operation.
