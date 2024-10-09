@@ -5,6 +5,7 @@ repo_name: bdpedigo/paleo
 edit_uri: edit/main/docs/
 nav:
   - index.md
+  - installation.md
   - Examples: examples.ipynb
   - Reference: reference.md
 theme:
