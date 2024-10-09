@@ -61,7 +61,7 @@ def _make_bbox(
 
 def _get_level2_nodes_edges(
     root_id: Integer, client: CAVEclient, bounds: Optional[np.ndarray] = None
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.Index, pd.DataFrame]:
     try:
         edgelist = client.chunkedgraph.level2_chunk_graph(root_id, bounds=bounds)
         nodelist = set()
@@ -79,7 +79,7 @@ def _get_level2_nodes_edges(
         else:
             edgelist = np.empty((0, 2), dtype=int)
 
-    nodes = pd.DataFrame(index=nodelist)
+    # nodes = pd.Index(nodelist)
 
     if len(edgelist) == 0:
         edges = pd.DataFrame(columns=["source", "target"])
@@ -88,19 +88,20 @@ def _get_level2_nodes_edges(
 
     edges = edges.drop_duplicates(keep="first")
 
-    return nodes, edges
+    return nodelist, edges
 
 
 def _get_all_nodes_edges(
     root_ids: Number, client: CAVEclient, bounds: Optional[np.ndarray] = None
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.Index, pd.DataFrame]:
     all_nodes = []
     all_edges = []
     for root_id in root_ids:
         nodes, edges = _get_level2_nodes_edges(root_id, client, bounds=bounds)
         all_nodes.append(nodes)
         all_edges.append(edges)
-    all_nodes = pd.concat(all_nodes, axis=0)
+    # all_nodes = pd.concat(all_nodes, axis=0)
+    all_nodes = pd.Index(np.concatenate(all_nodes))
     all_edges = pd.concat(all_edges, axis=0, ignore_index=True)
     return all_nodes, all_edges
 
@@ -237,10 +238,8 @@ def get_operation_level2_edit(
     )
 
     # finding the nodes that were added or removed, simple set logic
-    added_nodes_index = all_after_nodes.index.difference(all_before_nodes.index)
-    added_nodes = all_after_nodes.loc[added_nodes_index]
-    removed_nodes_index = all_before_nodes.index.difference(all_after_nodes.index)
-    removed_nodes = all_before_nodes.loc[removed_nodes_index]
+    added_nodes = all_after_nodes.difference(all_before_nodes)
+    removed_nodes = all_before_nodes.difference(all_after_nodes)
 
     # finding the edges that were added or removed, simple set logic again
     removed_edges, added_edges = _get_changed_edges(all_before_edges, all_after_edges)

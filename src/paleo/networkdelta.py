@@ -25,8 +25,8 @@ class NetworkDelta:
 
     def __init__(
         self,
-        removed_nodes: pd.DataFrame,
-        added_nodes: pd.DataFrame,
+        removed_nodes: pd.Index,
+        added_nodes: pd.Index,
         removed_edges: pd.DataFrame,
         added_edges: pd.DataFrame,
         metadata: dict = {},
@@ -55,8 +55,8 @@ class NetworkDelta:
 
     def to_dict(self) -> dict:
         out = dict(
-            removed_nodes=self.removed_nodes.index.to_list(),
-            added_nodes=self.added_nodes.index.to_list(),
+            removed_nodes=self.removed_nodes.to_list(),
+            added_nodes=self.added_nodes.to_list(),
             removed_edges=self.removed_edges.values.tolist(),
             added_edges=self.added_edges.values.tolist(),
             metadata=self.metadata,
@@ -66,22 +66,22 @@ class NetworkDelta:
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
 
-    @classmethod
-    def from_dict(cls, input):
-        removed_nodes = pd.DataFrame(index=input["removed_nodes"])
-        added_nodes = pd.DataFrame(index=input["added_nodes"])
-        removed_edges = pd.DataFrame(
-            input["removed_edges"], columns=["source", "target"]
-        )
-        added_edges = pd.DataFrame(input["added_edges"], columns=["source", "target"])
-        metadata = input["metadata"]
-        return cls(
-            removed_nodes, added_nodes, removed_edges, added_edges, metadata=metadata
-        )
+    # @classmethod
+    # def from_dict(cls, input):
+    #     removed_nodes = pd.DataFrame(index=input["removed_nodes"])
+    #     added_nodes = pd.DataFrame(index=input["added_nodes"])
+    #     removed_edges = pd.DataFrame(
+    #         input["removed_edges"], columns=["source", "target"]
+    #     )
+    #     added_edges = pd.DataFrame(input["added_edges"], columns=["source", "target"])
+    #     metadata = input["metadata"]
+    #     return cls(
+    #         removed_nodes, added_nodes, removed_edges, added_edges, metadata=metadata
+    #     )
 
-    @classmethod
-    def from_json(cls, input):
-        return cls.from_dict(json.loads(input))
+    # @classmethod
+    # def from_json(cls, input):
+    #     return cls.from_dict(json.loads(input))
 
     def __eq__(self, other: "NetworkDelta") -> bool:
         if not isinstance(other, NetworkDelta):
