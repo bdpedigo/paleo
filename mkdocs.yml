@@ -6,8 +6,9 @@ edit_uri: edit/main/docs/
 nav:
   - index.md
   - install.md
-  - Examples: examples.ipynb
-  - Reference: reference.md
+  - examples.ipynb
+  - reference.md
+  - roadmap.md
 theme:
   name: material
   language: en
