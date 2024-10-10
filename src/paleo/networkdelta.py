@@ -6,23 +6,6 @@ import numpy as np
 
 
 class NetworkDelta:
-    """
-    A class to represent a change to a network.
-
-    Attributes
-    ----------
-    removed_nodes :
-        IDs of nodes that were removed by this operation.
-    added_nodes :
-        IDs of nodes that were added by this operation.
-    removed_edges :
-        Edges that were removed by this operation.
-    added_edges :
-        Edges that were added by this operation.
-    metadata :
-        A dictionary of arbitrary metadata about the operation.
-    """
-
     def __init__(
         self,
         removed_nodes: np.ndarray,
@@ -31,6 +14,22 @@ class NetworkDelta:
         added_edges: np.ndarray,
         metadata: dict = {},
     ):
+        """
+        A class to represent a change to a network.
+
+        Parameters
+        ----------
+        removed_nodes :
+            IDs of nodes that were removed by this operation.
+        added_nodes :
+            IDs of nodes that were added by this operation.
+        removed_edges :
+            Edges that were removed by this operation.
+        added_edges :
+            Edges that were added by this operation.
+        metadata :
+            A dictionary of arbitrary metadata about the operation.
+        """
         self.removed_nodes = removed_nodes
         self.added_nodes = added_nodes
         self.removed_edges = removed_edges
