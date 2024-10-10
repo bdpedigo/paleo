@@ -2,7 +2,7 @@ import json
 import pprint
 from typing import Collection
 
-import pandas as pd
+import numpy as np
 
 
 class NetworkDelta:
@@ -20,21 +20,21 @@ class NetworkDelta:
     added_edges :
         Edges that were added by this operation.
     metadata :
-        A dictionary of metadata about the operation.
+        A dictionary of arbitrary metadata about the operation.
     """
 
     def __init__(
         self,
-        removed_nodes: pd.Index,
-        added_nodes: pd.Index,
-        removed_edges: pd.DataFrame,
-        added_edges: pd.DataFrame,
+        removed_nodes: np.ndarray,
+        added_nodes: np.ndarray,
+        removed_edges: np.ndarray,
+        added_edges: np.ndarray,
         metadata: dict = {},
     ):
         self.removed_nodes = removed_nodes
         self.added_nodes = added_nodes
-        self.removed_edges = removed_edges.reset_index(drop=True)
-        self.added_edges = added_edges.reset_index(drop=True)
+        self.removed_edges = removed_edges
+        self.added_edges = added_edges
         self.metadata = metadata
 
     def __repr__(self):
@@ -105,28 +105,24 @@ class NetworkDelta:
         return combine_deltas([self, other])
 
 
-def combine_deltas(deltas: Collection[NetworkDelta]) -> NetworkDelta:
-    total_added_nodes = pd.concat(
-        [delta.added_nodes for delta in deltas], verify_integrity=True
-    )
-    total_removed_nodes = pd.concat(
-        [delta.removed_nodes for delta in deltas], verify_integrity=True
-    )
+def _unique_concatenate(
+    arrays: Collection[np.ndarray], verify_integrity=True
+) -> np.ndarray:
+    concat_array = np.concatenate(arrays)
+    if verify_integrity:
+        unique_array, unique_counts = np.unique(
+            concat_array, axis=0, return_counts=True
+        )
+        if np.any(unique_counts > 1):
+            raise ValueError("Duplicate values found in arrays")
+    return concat_array
 
-    total_added_edges = pd.concat(
-        [
-            delta.added_edges.set_index(["source", "target"], drop=True)
-            for delta in deltas
-        ],
-        verify_integrity=True,
-    ).reset_index(drop=False)
-    total_removed_edges = pd.concat(
-        [
-            delta.removed_edges.set_index(["source", "target"], drop=True)
-            for delta in deltas
-        ],
-        verify_integrity=True,
-    ).reset_index(drop=False)
+
+def combine_deltas(deltas: Collection[NetworkDelta]) -> NetworkDelta:
+    total_added_nodes = _unique_concatenate([delta.added_nodes for delta in deltas])
+    total_removed_nodes = _unique_concatenate([delta.removed_nodes for delta in deltas])
+    total_added_edges = _unique_concatenate([delta.added_edges for delta in deltas])
+    total_removed_edges = _unique_concatenate([delta.removed_edges for delta in deltas])
 
     return NetworkDelta(
         total_removed_nodes,

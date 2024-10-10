@@ -24,18 +24,50 @@ type Integer = Union[int, np.integer]
 TIMESTAMP_DELTA = timedelta(microseconds=1)
 
 
+# def _get_changed_edges(
+#     before_edges: np.ndarray, after_edges: np.ndarray
+# ) -> tuple[pd.DataFrame, pd.DataFrame]:
+#     before_edges.drop_duplicates()
+#     before_edges["is_before"] = True
+#     after_edges.drop_duplicates()
+#     after_edges["is_before"] = False
+#     delta_edges = pd.concat([before_edges, after_edges]).drop_duplicates(
+#         ["source", "target"], keep=False
+#     )
+#     removed_edges = delta_edges.query("is_before").drop(columns=["is_before"])
+#     added_edges = delta_edges.query("~is_before").drop(columns=["is_before"])
+#     return removed_edges, added_edges
+
+
+def _sort_edgelist(edgelist: np.ndarray) -> np.ndarray:
+    return np.unique(np.sort(edgelist, axis=1), axis=0)
+
+
 def _get_changed_edges(
-    before_edges: pd.DataFrame, after_edges: pd.DataFrame
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    before_edges.drop_duplicates()
-    before_edges["is_before"] = True
-    after_edges.drop_duplicates()
-    after_edges["is_before"] = False
-    delta_edges = pd.concat([before_edges, after_edges]).drop_duplicates(
-        ["source", "target"], keep=False
+    before_edges: np.ndarray, after_edges: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+
+    before_edges = _sort_edgelist(before_edges)
+    after_edges = _sort_edgelist(after_edges)
+
+    before_edges = np.concatenate(
+        (before_edges, np.zeros((before_edges.shape[0], 1), dtype=int)), axis=1
     )
-    removed_edges = delta_edges.query("is_before").drop(columns=["is_before"])
-    added_edges = delta_edges.query("~is_before").drop(columns=["is_before"])
+    after_edges = np.concatenate(
+        (after_edges, np.ones((after_edges.shape[0], 1), dtype=int)), axis=1
+    )
+
+    all_edges = np.concatenate((before_edges, after_edges), axis=0, dtype=int)
+    unique_edges, index, edge_counts = np.unique(
+        all_edges[:, :2], axis=0, return_counts=True, return_index=True
+    )
+
+    single_inverse = index[edge_counts == 1]
+    single_edges = all_edges[single_inverse]
+
+    removed_edges = single_edges[single_edges[:, 2] == 0][:, :2]
+    added_edges = single_edges[single_edges[:, 2] == 1][:, :2]
+
     return removed_edges, added_edges
 
 
@@ -61,7 +93,7 @@ def _make_bbox(
 
 def _get_level2_nodes_edges(
     root_id: Integer, client: CAVEclient, bounds: Optional[np.ndarray] = None
-) -> tuple[pd.Index, pd.DataFrame]:
+) -> tuple[np.ndarray, np.ndarray]:
     try:
         edgelist = client.chunkedgraph.level2_chunk_graph(root_id, bounds=bounds)
         nodelist = set()
@@ -79,30 +111,30 @@ def _get_level2_nodes_edges(
         else:
             edgelist = np.empty((0, 2), dtype=int)
 
-    # nodes = pd.Index(nodelist)
-
     if len(edgelist) == 0:
-        edges = pd.DataFrame(columns=["source", "target"])
+        edgelist = np.empty((0, 2), dtype=int)
     else:
-        edges = pd.DataFrame(edgelist, columns=["source", "target"])
+        edgelist = np.array(edgelist, dtype=int)
 
-    edges = edges.drop_duplicates(keep="first")
+    edgelist = _sort_edgelist(edgelist)
 
-    return nodelist, edges
+    nodelist = np.array(nodelist, dtype=int)
+    nodelist = np.unique(nodelist)
+
+    return nodelist, edgelist
 
 
 def _get_all_nodes_edges(
     root_ids: Number, client: CAVEclient, bounds: Optional[np.ndarray] = None
-) -> tuple[pd.Index, pd.DataFrame]:
+) -> tuple[np.ndarray, np.ndarray]:
     all_nodes = []
     all_edges = []
     for root_id in root_ids:
         nodes, edges = _get_level2_nodes_edges(root_id, client, bounds=bounds)
         all_nodes.append(nodes)
         all_edges.append(edges)
-    # all_nodes = pd.concat(all_nodes, axis=0)
-    all_nodes = pd.Index(np.concatenate(all_nodes))
-    all_edges = pd.concat(all_edges, axis=0, ignore_index=True)
+    all_nodes = np.concatenate(all_nodes, dtype=int)
+    all_edges = np.concatenate(all_edges, dtype=int)
     return all_nodes, all_edges
 
 
@@ -238,8 +270,8 @@ def get_operation_level2_edit(
     )
 
     # finding the nodes that were added or removed, simple set logic
-    added_nodes = all_after_nodes.difference(all_before_nodes)
-    removed_nodes = all_before_nodes.difference(all_after_nodes)
+    added_nodes = np.setdiff1d(all_after_nodes, all_before_nodes)
+    removed_nodes = np.setdiff1d(all_before_nodes, all_after_nodes)
 
     # finding the edges that were added or removed, simple set logic again
     removed_edges, added_edges = _get_changed_edges(all_before_edges, all_after_edges)
@@ -349,7 +381,7 @@ def get_operations_level2_edits(
             desc="Extracting level2 edits",
         ):
             networkdeltas.append(get_operation_level2_edit(**inputs))
-    
+
     networkdeltas = dict(zip(operation_ids, networkdeltas))
     return networkdeltas
 
@@ -451,12 +483,12 @@ def get_metaedits(
     mod_sets = {}
     for edit_id, delta in networkdeltas.items():
         mod_set = []
-        mod_set += delta.added_nodes.index.tolist()
-        mod_set += delta.removed_nodes.index.tolist()
-        mod_set += delta.added_edges["source"].tolist()
-        mod_set += delta.added_edges["target"].tolist()
-        mod_set += delta.removed_edges["source"].tolist()
-        mod_set += delta.removed_edges["target"].tolist()
+        mod_set += delta.added_nodes.tolist()
+        mod_set += delta.removed_nodes.tolist()
+        mod_set += delta.added_edges[:, 0].tolist()
+        mod_set += delta.added_edges[:, 1].tolist()
+        mod_set += delta.removed_edges[:, 0].tolist()
+        mod_set += delta.removed_edges[:, 1].tolist()
         mod_set = np.unique(mod_set)
         mod_sets[edit_id] = mod_set
 
