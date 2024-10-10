@@ -6,6 +6,7 @@ from .paleo import (
     get_metadata_table,
     get_operations_level2_edits,
     get_root_level2_edits,
+    compare_graphs,
 )
 
 __all__ = [
@@ -13,7 +14,9 @@ __all__ = [
     "get_operation_level2_edit",
     "get_operations_level2_edits",
     "get_root_level2_edits",
+    "compare_graphs",
     "get_metaedits",
     "get_metadata_table",
     "NetworkDelta",
+
 ]

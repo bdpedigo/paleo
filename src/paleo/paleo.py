@@ -20,6 +20,7 @@ from .networkdelta import NetworkDelta, combine_deltas
 
 type Number = Union[int, float, np.number]
 type Integer = Union[int, np.integer]
+type Graph = Union[np.ndarray, tuple[np.ndarray, np.ndarray]]
 
 TIMESTAMP_DELTA = timedelta(microseconds=1)
 
@@ -46,7 +47,6 @@ def _sort_edgelist(edgelist: np.ndarray) -> np.ndarray:
 def _get_changed_edges(
     before_edges: np.ndarray, after_edges: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-
     before_edges = _sort_edgelist(before_edges)
     after_edges = _sort_edgelist(after_edges)
 
@@ -183,6 +183,65 @@ def get_detailed_change_log(
     return change_log
 
 
+def _get_nodes_edges_from_graph(graph):
+    if isinstance(graph, tuple):
+        nodes, edges = graph
+    else:
+        nodes = np.unique(graph.flatten())
+        edges = graph
+    return nodes, edges
+
+
+def compare_graphs(
+    graph_before: Graph, graph_after: Graph, metadata=False
+) -> NetworkDelta:
+    """Compare two graphs and return the differences.
+
+    Parameters
+    ----------
+    graph_before :
+        The graph before the operation. Can either be a tuple of (nodes, edges) stored
+        as `np.ndarrays`, or just the edges as an `np.ndarray`.
+    graph_after :
+        The graph after the operation. Can either be a tuple of (nodes, edges) stored
+        as `np.ndarrays`, or just the edges as an `np.ndarray`.
+
+    Returns
+    -------
+    :
+        The differences between the two graphs.
+    """
+
+    nodes_before, edges_before = _get_nodes_edges_from_graph(graph_before)
+    nodes_after, edges_after = _get_nodes_edges_from_graph(graph_after)
+
+    removed_nodes = np.setdiff1d(nodes_before, nodes_after)
+    added_nodes = np.setdiff1d(nodes_after, nodes_before)
+
+    removed_edges, added_edges = _get_changed_edges(edges_before, edges_after)
+
+    # keep track of what changed
+    if metadata:
+        metadata_dict = {
+            "n_added_nodes": len(added_nodes),
+            "n_removed_nodes": len(removed_nodes),
+            "n_modified_nodes": len(added_nodes) + len(removed_nodes),
+            "n_added_edges": len(added_edges),
+            "n_removed_edges": len(removed_edges),
+            "n_modified_edges": len(added_edges) + len(removed_edges),
+        }
+    else:
+        metadata_dict = {}
+
+    return NetworkDelta(
+        removed_nodes,
+        added_nodes,
+        removed_edges,
+        added_edges,
+        metadata=metadata_dict,
+    )
+
+
 def get_operation_level2_edit(
     operation_id: int,
     client: CAVEclient,
@@ -269,34 +328,13 @@ def get_operation_level2_edit(
         after_root_ids, client, bounds=bbox_cg
     )
 
-    # finding the nodes that were added or removed, simple set logic
-    added_nodes = np.setdiff1d(all_after_nodes, all_before_nodes)
-    removed_nodes = np.setdiff1d(all_before_nodes, all_after_nodes)
-
-    # finding the edges that were added or removed, simple set logic again
-    removed_edges, added_edges = _get_changed_edges(all_before_edges, all_after_edges)
-
-    # keep track of what changed
-    if metadata:
-        metadata_dict = {
-            "operation_id": operation_id,
-            "n_added_nodes": len(added_nodes),
-            "n_removed_nodes": len(removed_nodes),
-            "n_modified_nodes": len(added_nodes) + len(removed_nodes),
-            "n_added_edges": len(added_edges),
-            "n_removed_edges": len(removed_edges),
-            "n_modified_edges": len(added_edges) + len(removed_edges),
-        }
-    else:
-        metadata_dict = {}
-
-    return NetworkDelta(
-        removed_nodes,
-        added_nodes,
-        removed_edges,
-        added_edges,
-        metadata=metadata_dict,
+    networkdelta = compare_graphs(
+        (all_before_nodes, all_before_edges), (all_after_nodes, all_after_edges)
     )
+    if metadata:
+        networkdelta.metadata["operation_id"] = operation_id
+
+    return networkdelta
 
 
 def get_operations_level2_edits(
