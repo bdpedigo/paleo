@@ -1,5 +1,5 @@
 from .networkdelta import NetworkDelta  # noqa: I001
-from .paleo import (
+from .graph_edits import (
     get_detailed_change_log,
     compare_graphs,
     get_operation_level2_edit,

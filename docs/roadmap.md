@@ -28,6 +28,7 @@ Some potential applications of this work include:
 - Data extraction for training automated proofreading algorithms
 - Development of metrics for weighting the impact individual edits
 - Attaching semantic information to edits, such as "this edit is an undo"
+- Developing models of how well proofread a cell is
 
 Here, we describe some of the possible features we might want to implement in `paleo`.
 
@@ -61,6 +62,9 @@ that for any of these statistics, there would be something like `path_length_add
 - `n_synapses`
 - `n_pre_synapses`
 - `n_post_synapses`
+- `n_edits`
+- `n_merges`
+- `n_splits`
 
 ## Comparison types
 
@@ -71,3 +75,10 @@ For any of the above comparisons, what inputs would be convenient to provide?
 - `compare_operations_{target}`: given a list of operation IDs, compare the target features before and after for each operation.
 - `compare_root_operations_{target}`: given a root, compare the target features before and after each operation in its history.
 - `compare_timepoints_{target}`: given two timepoints and a root/nucleus ID, compare the target features between the timepoints.
+
+<!-- ## Notes
+
+- How long since a cell has been edited?
+- What were the edits that were necessary for connecting this edit to this cell
+  - And metadata about those edits, like who connected them
+- Are there metrics on how good a proofreader is? -->
