@@ -1283,6 +1283,8 @@ jupyter = [
 [package.dev-dependencies]
 dev = [
     { name = "ipykernel" },
+    { name = "ipywidgets" },
+    { name = "jupyter" },
     { name = "mkdocs-glightbox" },
     { name = "mkdocs-include-markdown-plugin" },
     { name = "mkdocs-material" },
@@ -1304,6 +1306,8 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "ipywidgets", specifier = ">=8.1.5" },
+    { name = "jupyter", specifier = ">=1.1.1" },
     { name = "mkdocs-glightbox", specifier = ">=0.4.0" },
     { name = "mkdocs-include-markdown-plugin", specifier = ">=6.2.2" },
     { name = "mkdocs-material", specifier = ">=9.5.39" },

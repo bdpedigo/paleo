@@ -2,9 +2,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
 from requests.exceptions import HTTPError
-from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
 
@@ -49,40 +47,6 @@ def _get_level2_nodes_edges(
     return nodelist, edgelist
 
 
-def get_initial_node_ids(root_id, client):
-    lineage_g = client.chunkedgraph.get_lineage_graph(root_id, as_nx_graph=True)
-    node_in_degree = pd.Series(dict(lineage_g.in_degree()))
-    original_node_ids = node_in_degree[node_in_degree == 0].index
-    return original_node_ids
-
-
-def get_initial_network(root_id, client, verbose=True):
-    original_node_ids = get_initial_node_ids(root_id, client)
-
-    def _get_info_for_node(leaf_id):
-        nodes, edges = _get_level2_nodes_edges(leaf_id, client)
-        return nodes, edges
-
-    with tqdm_joblib(total=len(original_node_ids), disable=not verbose):
-        outs = Parallel(n_jobs=-1)(
-            delayed(_get_info_for_node)(leaf_id) for leaf_id in original_node_ids
-        )
-    all_nodes = []
-    all_edges = []
-    for out in outs:
-        nodes, edges = out
-        all_nodes.append(nodes)
-        all_edges.append(edges)
-
-    all_nodes = np.concatenate(all_nodes, axis=0)
-    all_edges = np.concatenate(all_edges, axis=0)
-
-    all_nodes = np.unique(all_nodes)
-    all_edges = _sort_edgelist(all_edges)
-
-    return all_nodes, all_edges
-
-
 def get_node_aliases(supervoxel_id, client, stop_layer=2) -> pd.DataFrame:
     """For a given supervoxel, get the node that it was part of at `stop_layer` for
     each timestamp.
@@ -111,3 +75,72 @@ def get_node_aliases(supervoxel_id, client, stop_layer=2) -> pd.DataFrame:
 
     node_info = pd.DataFrame(node_info).set_index("node_id")
     return node_info
+
+
+# a version of the above that used the already computed edits to do the tracking
+
+# current_timestamp = client.timestamp
+# supervoxel_id = nuc_supervoxel_id
+
+# level2_id = client.chunkedgraph.get_roots(supervoxel_id, stop_layer=2)[0]
+
+# operation_id_added = None
+
+# level2_id_info = []
+
+# for operation_id, delta in tqdm(list(networkdeltas.items())[::-1], disable=True):
+#     if level2_id in delta.added_nodes:
+#         operation_id_added = operation_id
+#         operation_added_ts = client.chunkedgraph.get_operation_details(
+#             [operation_id_added]
+#         )[str(operation_id_added)]["timestamp"]
+#         operation_added_ts = datetime.fromisoformat(operation_added_ts)
+
+#         level2_id_info.append(
+#             {
+#                 "level2_id": level2_id,
+#                 "operation_id_added": operation_id_added,
+#                 "start_valid_ts": operation_added_ts,
+#                 "end_valid_ts": current_timestamp,
+#             }
+#         )
+
+#         # get the new ID and continue to search backwards
+#         pre_operation_added_ts = operation_added_ts - TIMESTAMP_DELTA
+#         level2_id = client.chunkedgraph.get_roots(
+#             nuc_supervoxel_id, stop_layer=2, timestamp=pre_operation_added_ts
+#         )[0]
+#         current_timestamp = pre_operation_added_ts
+
+
+# level2_id_info.append(
+#     {
+#         "level2_id": level2_id,
+#         "operation_id_added": None,
+#         "start_valid_ts": None,
+#         "end_valid_ts": current_timestamp,
+#     }
+# )
+# pd.DataFrame(level2_id_info)
+
+
+def get_component_masks(components: list[set]):
+    """From a list of components, get a node by component boolean DataFrame of masks."""
+    used_l2_nodes = np.unique(np.concatenate([list(c) for c in components]))
+    l2_masks = pd.DataFrame(
+        index=used_l2_nodes,
+        data=np.zeros((len(used_l2_nodes), len(components)), dtype=bool),
+    )
+    for i, component in enumerate(components):
+        l2_masks.loc[list(component), i] = True
+
+    return l2_masks
+
+
+def get_nucleus_supervoxel(root_id, client):
+    nuc_table = client.info.get_datastack_info()["soma_table"]
+    nuc_info = client.materialize.query_table(
+        nuc_table, filter_equal_dict=dict(pt_root_id=root_id)
+    )
+    nuc_supervoxel_id = nuc_info["pt_supervoxel_id"].values[0]
+    return nuc_supervoxel_id

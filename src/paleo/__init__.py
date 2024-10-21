@@ -9,7 +9,7 @@ from .graph_edits import (  # noqa: I001
 )
 from .level2_graph import apply_edit, get_initial_graph, get_initial_node_ids
 from .networkdelta import NetworkDelta
-
+from .utils import get_node_aliases, get_component_masks, get_nucleus_supervoxel
 
 __all__ = [
     "compare_graphs",
@@ -23,4 +23,8 @@ __all__ = [
     "get_initial_graph",
     "apply_edit",
     "NetworkDelta",
+    "get_node_aliases",
+    "get_component_masks",
+    "get_initial_network",
+    "get_nucleus_supervoxel",
 ]

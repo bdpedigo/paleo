@@ -25,7 +25,7 @@ def get_initial_graph(root_id, client, verbose=True, return_as="networkx"):
         nodes, edges = _get_level2_nodes_edges(leaf_id, client)
         return nodes, edges
 
-    with tqdm_joblib(total=len(original_node_ids), disable=not verbose):
+    with tqdm_joblib(total=len(original_node_ids), disable=not verbose, desc="Getting initial graph") as pbar:
         outs = Parallel(n_jobs=-1)(
             delayed(_get_info_for_node)(leaf_id) for leaf_id in original_node_ids
         )

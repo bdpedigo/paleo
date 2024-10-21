@@ -22,6 +22,8 @@ requires = ["hatchling"]
 [tool.uv]
 dev-dependencies = [
     "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.5",
+    "jupyter>=1.1.1",
     "mkdocs-glightbox>=0.4.0",
     "mkdocs-include-markdown-plugin>=6.2.2",
     "mkdocs-material>=9.5.39",
