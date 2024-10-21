@@ -163,7 +163,7 @@ wheels = [
 
 [[package]]
 name = "caveclient"
-version = "5.30.2"
+version = "6.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -177,7 +177,7 @@ dependencies = [
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/68/bccc7b268def64b987406fe1286e8a72fb16ef416a91e88a6b323a3dbdf4/caveclient-5.30.2.tar.gz", hash = "sha256:f58e0c98dc8cc5cdd06488bc386c0d203d980e7de97be643ba6c3e3617eba294", size = 82975 }
+sdist = { url = "https://files.pythonhosted.org/packages/08/0b/ed76a8078f6a4fa82586375e21187594089eb0473eea633d46790715930d/caveclient-6.0.2.tar.gz", hash = "sha256:05064f6ad855dcd91f1dd34894e685791646aea5311ebeca5a241fc1710a1b89", size = 82840 }
 
 [[package]]
 name = "certifi"
@@ -1292,7 +1292,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "caveclient", specifier = ">=5.30.2" },
+    { name = "caveclient", specifier = ">=6.0.2" },
     { name = "ipywidgets", marker = "extra == 'jupyter'", specifier = ">=8.1.5" },
     { name = "joblib", specifier = ">=1.4.2" },
     { name = "jupyter", marker = "extra == 'jupyter'", specifier = ">=1.1.1" },

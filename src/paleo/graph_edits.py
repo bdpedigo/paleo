@@ -5,7 +5,6 @@ from typing import Collection, Optional, Union
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from requests import HTTPError
 from scipy.sparse import csr_array
 from scipy.sparse.csgraph import connected_components
 from tqdm import TqdmExperimentalWarning
@@ -17,10 +16,8 @@ from tqdm_joblib import tqdm_joblib
 from caveclient import CAVEclient
 
 from .networkdelta import NetworkDelta, combine_deltas
-
-type Number = Union[int, float, np.number]
-type Integer = Union[int, np.integer]
-type Graph = Union[np.ndarray, tuple[np.ndarray, np.ndarray]]
+from .types import Graph, Number, Integer
+from .utils import _get_level2_nodes_edges, _sort_edgelist
 
 TIMESTAMP_DELTA = timedelta(microseconds=1)
 
@@ -38,10 +35,6 @@ TIMESTAMP_DELTA = timedelta(microseconds=1)
 #     removed_edges = delta_edges.query("is_before").drop(columns=["is_before"])
 #     added_edges = delta_edges.query("~is_before").drop(columns=["is_before"])
 #     return removed_edges, added_edges
-
-
-def _sort_edgelist(edgelist: np.ndarray) -> np.ndarray:
-    return np.unique(np.sort(edgelist, axis=1), axis=0)
 
 
 def _get_changed_edges(
@@ -89,39 +82,6 @@ def _make_bbox(
 
     bbox_cg = np.array([start_point_cg, stop_point_cg], dtype=int)
     return bbox_cg
-
-
-def _get_level2_nodes_edges(
-    root_id: Integer, client: CAVEclient, bounds: Optional[np.ndarray] = None
-) -> tuple[np.ndarray, np.ndarray]:
-    try:
-        edgelist = client.chunkedgraph.level2_chunk_graph(root_id, bounds=bounds)
-        nodelist = set()
-        for edge in edgelist:
-            for node in edge:
-                nodelist.add(node)
-        nodelist = list(nodelist)
-    except HTTPError:
-        # REF: https://github.com/seung-lab/PyChunkedGraph/issues/404
-        nodelist = client.chunkedgraph.get_leaves(root_id, stop_layer=2)
-        if len(nodelist) != 1:
-            raise HTTPError(
-                f"HTTPError: level 2 chunk graph not found for root_id: {root_id}"
-            )
-        else:
-            edgelist = np.empty((0, 2), dtype=int)
-
-    if len(edgelist) == 0:
-        edgelist = np.empty((0, 2), dtype=int)
-    else:
-        edgelist = np.array(edgelist, dtype=int)
-
-    edgelist = _sort_edgelist(edgelist)
-
-    nodelist = np.array(nodelist, dtype=int)
-    nodelist = np.unique(nodelist)
-
-    return nodelist, edgelist
 
 
 def _get_all_nodes_edges(
