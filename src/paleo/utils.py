@@ -8,6 +8,7 @@ from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
 
+from .constants import TIMESTAMP_DELTA
 from .types import Integer
 
 
@@ -55,7 +56,7 @@ def get_initial_node_ids(root_id, client):
     return original_node_ids
 
 
-def get_initial_network(root_id, client, positions=False, verbose=True):
+def get_initial_network(root_id, client, verbose=True):
     original_node_ids = get_initial_node_ids(root_id, client)
 
     def _get_info_for_node(leaf_id):
@@ -80,3 +81,33 @@ def get_initial_network(root_id, client, positions=False, verbose=True):
     all_edges = _sort_edgelist(all_edges)
 
     return all_nodes, all_edges
+
+
+def get_node_aliases(supervoxel_id, client, stop_layer=2) -> pd.DataFrame:
+    """For a given supervoxel, get the node that it was part of at `stop_layer` for
+    each timestamp.
+    """
+    current_ts = client.timestamp
+
+    node_id = client.chunkedgraph.get_roots(
+        supervoxel_id, stop_layer=stop_layer, timestamp=current_ts
+    )[0]
+    oldest_ts = client.chunkedgraph.get_oldest_timestamp()
+
+    node_info = []
+    while current_ts > oldest_ts:
+        created_ts = client.chunkedgraph.get_root_timestamps(node_id)[0]
+        node_info.append(
+            {
+                "node_id": node_id,
+                "start_valid_ts": created_ts,
+                "end_valid_ts": current_ts,
+            }
+        )
+        current_ts = created_ts - TIMESTAMP_DELTA
+        node_id = client.chunkedgraph.get_roots(
+            supervoxel_id, stop_layer=stop_layer, timestamp=current_ts
+        )[0]
+
+    node_info = pd.DataFrame(node_info).set_index("node_id")
+    return node_info
