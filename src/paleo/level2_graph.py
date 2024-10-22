@@ -1,7 +1,13 @@
+import warnings
+
 import networkx as nx
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+from tqdm import TqdmExperimentalWarning
+
+warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
+
 from tqdm_joblib import tqdm_joblib
 
 from .networkdelta import NetworkDelta
