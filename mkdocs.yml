@@ -105,3 +105,4 @@ plugins:
   - mknotebooks:
       enable_default_jupyter_cell_styling: true
       enable_default_pandas_dataframe_styling: true
+  - social
