@@ -6,9 +6,11 @@ edit_uri: edit/main/docs/
 nav:
   - index.md
   - install.md
+  - Tutorials:
+    - Extracting edits: tutorials/l2_edit_extraction.ipynb
+    - Replaying edits: tutorials/l2_edit_replay.ipynb
   - Examples:
-    - Extracting edits: examples/l2_edit_extraction.ipynb
-    - Replaying edits: examples/l2_edit_replay.ipynb
+    - Skeletonizing along a history: examples/skeletonize_history.ipynb
   - reference.md
   - roadmap.md
 theme:
