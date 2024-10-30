@@ -7,8 +7,9 @@ nav:
   - index.md
   - install.md
   - Tutorials:
-    - Extracting edits: tutorials/l2_edit_extraction.ipynb
-    - Replaying edits: tutorials/l2_edit_replay.ipynb
+    - Extracting edits: tutorials/extraction.ipynb
+    - Replaying edits: tutorials/replay.ipynb
+    - Replay strategies: tutorials/strategies.ipynb
   - Examples:
     - Skeletonizing along a history: examples/skeletonize_history.ipynb
   - reference.md

@@ -373,6 +373,7 @@ def get_root_level2_edits(
     client: CAVEclient,
     radius: Number = 20_000,
     metadata: bool = False,
+    filtered: bool = False,
     n_jobs: int = -1,
     verbose: bool = True,
 ) -> dict[Integer, NetworkDelta]:
@@ -388,6 +389,9 @@ def get_root_level2_edits(
         The radius of the bounding box to use.
     metadata :
         Whether to include metadata about the changes in the output.
+    filtered :
+        Whether to filter the change log to only include changes which affect the
+        final state of the root ID.
     n_jobs :
         The number of jobs to run in parallel. If -1, will use all available cores.
     verbose :
@@ -398,7 +402,7 @@ def get_root_level2_edits(
     :
         The changes to the level2 graph from each operation
     """
-    change_log = get_detailed_change_log(root_id, client, filtered=False)
+    change_log = get_detailed_change_log(root_id, client, filtered=filtered)
 
     inputs_by_operation = []
     for operation_id, row in change_log.iterrows():
@@ -491,10 +495,14 @@ def get_metaedits(
     _, labels = connected_components(product, directed=False)
 
     meta_operation_map = {}
+    operation_map = {}
     for label in np.unique(labels):
-        meta_operation_map[label] = node_edit_indicators.columns[
+        edits = node_edit_indicators.columns[
             labels == label
         ].tolist()
+        meta_operation_map[label] = edits
+        for edit in edits:
+            operation_map[edit] = label
 
     # for each meta-operation, combine the deltas of the operations that make it up
     networkdeltas_by_meta_operation = {}
@@ -504,7 +512,8 @@ def get_metaedits(
         meta_networkdelta = combine_deltas(deltas)
         networkdeltas_by_meta_operation[meta_operation_id] = meta_networkdelta
 
-    return networkdeltas_by_meta_operation, meta_operation_map
+    return networkdeltas_by_meta_operation, operation_map
+
 
 
 def get_metadata_table(operation_ids=None, root_ids=None, client=None):

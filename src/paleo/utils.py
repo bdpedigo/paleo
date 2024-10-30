@@ -2,7 +2,9 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 from requests.exceptions import HTTPError
+from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
 
@@ -144,3 +146,54 @@ def get_nucleus_supervoxel(root_id, client):
     )
     nuc_supervoxel_id = nuc_info["pt_supervoxel_id"].values[0]
     return nuc_supervoxel_id
+
+
+def get_nodes_aliases(supervoxel_ids, client, stop_layer=2):
+    if not isinstance(supervoxel_ids, list):
+        supervoxel_ids = list(supervoxel_ids)
+
+    # for all supervoxels, look up their level2 node now
+    current_ts = client.timestamp
+    node_ids = client.chunkedgraph.get_roots(
+        supervoxel_ids, stop_layer=stop_layer, timestamp=current_ts
+    )
+    node_to_supervoxel = pd.Series(index=node_ids, data=supervoxel_ids)
+    node_to_supervoxel.index.name = "node_id"
+    node_to_supervoxel.name = "supervoxel_id"
+
+    # find out when they were made
+    timestamps = client.chunkedgraph.get_root_timestamps(node_ids)
+    node_timestamps = pd.Series(data=timestamps, index=node_ids)
+    node_timestamps.index.name = "node_id"
+    node_timestamps.name = "timestamp"
+
+    # anything that was created at before oldest_ts we can ignore
+    oldest_ts = client.chunkedgraph.get_oldest_timestamp()
+
+    # everything else, we need to look up its history
+    new_nodes = node_timestamps[node_timestamps > oldest_ts].index
+    supervoxels_to_lookup = node_to_supervoxel.loc[new_nodes]
+
+    # TODO this could be a bit faster if we wrote a smarter implementation since
+    # some nodes may end up in the same history, don't think would be a huge speedup,
+    # though
+    with tqdm_joblib(total=len(supervoxels_to_lookup)):
+        historical_l2_ids = Parallel(n_jobs=-1)(
+            delayed(lambda sv: get_node_aliases(sv, client).index.to_list())(sv)
+            for sv in supervoxels_to_lookup
+        )
+
+    supervoxel_historical_l2_ids = {
+        sv: l2s for sv, l2s in zip(supervoxels_to_lookup, historical_l2_ids)
+    }
+    # backfill the ones that we didnt have to go back in time for
+    old_nodes = node_timestamps[node_timestamps <= oldest_ts].index
+    old_supervoxels_to_nodes = (
+        node_to_supervoxel.loc[old_nodes]
+        .reset_index()
+        .set_index("supervoxel_id")["node_id"]
+    )
+    old_supervoxels_to_nodes = old_supervoxels_to_nodes.apply(lambda x: [x])
+    supervoxel_historical_l2_ids.update(old_supervoxels_to_nodes.to_dict())
+
+    return supervoxel_historical_l2_ids

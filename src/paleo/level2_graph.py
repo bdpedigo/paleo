@@ -10,7 +10,6 @@ warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
 
 from tqdm_joblib import tqdm_joblib
 
-from .networkdelta import NetworkDelta
 from .utils import _get_level2_nodes_edges, _sort_edgelist
 
 
@@ -57,19 +56,3 @@ def get_initial_graph(root_id, client, verbose=True, return_as="networkx"):
         return graph
     else:  # return_as == 'arrays'
         return all_nodes, all_edges
-
-
-def apply_edit(graph: nx.Graph, networkdelta: NetworkDelta):
-    removed_edges = networkdelta.removed_edges
-    removed_nodes = networkdelta.removed_nodes
-
-    added_edges = networkdelta.added_edges
-    added_nodes = networkdelta.added_nodes
-
-    # NOTE: these do not error if the nodes or edges are not in the graph
-    # may want to revisit that
-    graph.remove_nodes_from(removed_nodes)
-    graph.remove_edges_from(removed_edges)
-
-    graph.add_nodes_from(added_nodes)
-    graph.add_edges_from(added_edges)

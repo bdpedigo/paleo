@@ -7,3 +7,12 @@ Python package for interfacing with CAVE edit histories
 ```bash
 pip install paleo
 ```
+
+```mermaid
+
+graph TD;
+    A-->B;
+    A-->C;
+    B-->D;
+    C-->D;
+```
