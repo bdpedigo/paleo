@@ -89,7 +89,7 @@ def get_mutable_synapses(
     # return (tables[0], tables[1])
 
 
-def map_synapses_to_sequence(synapses: pd.DataFrame, components: dict, side="pre"):
+def map_synapses_to_sequence(synapses: pd.DataFrame, nodes_by_state: dict, side="pre"):
     """Map synapses (with level2 node information) to a sequence of level2 nodes."""
     if f"{side}_pt_level2_id" not in synapses.columns:
         raise ValueError(
@@ -97,11 +97,11 @@ def map_synapses_to_sequence(synapses: pd.DataFrame, components: dict, side="pre
         )
     synapses = synapses.reset_index(drop=False).set_index(f"{side}_pt_level2_id")
     synapse_ids_by_edit = {}
-    for edit_id, component in tqdm(components.items()):
-        component_synapse_index = synapses.index.intersection(list(component))
+    for state_id, nodes in tqdm(nodes_by_state.items()):
+        component_synapse_index = synapses.index.intersection(list(nodes))
         synapse_ids_at_state = (
             synapses.loc[component_synapse_index, "id"].unique().tolist()
         )
-        synapse_ids_by_edit[edit_id] = synapse_ids_at_state
+        synapse_ids_by_edit[state_id] = synapse_ids_at_state
 
     return synapse_ids_by_edit
