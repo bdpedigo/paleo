@@ -60,14 +60,13 @@ def apply_edit_sequence(
     graph = graph.copy()
     if include_initial and -1 not in edits:
         edits = {-1: None, **edits}
-    components = {}
-    subgraphs = {}
+
+    out = {}
     for edit_id, edit in tqdm(edits.items(), disable=not verbose):
         component = resolve_edit(graph, edit, anchor_nodes)
-        components[edit_id] = component
         if return_graphs:
-            subgraphs[edit_id] = graph.subgraph(component).copy()
-    if return_graphs:
-        return components, subgraphs
-    else:
-        return components
+            out[edit_id] = graph.subgraph(component).copy()
+        else:
+            out[edit_id] = component
+
+    return out
