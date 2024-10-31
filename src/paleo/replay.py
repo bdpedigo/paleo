@@ -6,6 +6,7 @@ from .networkdelta import NetworkDelta
 
 
 def apply_edit(graph: nx.Graph, networkdelta: NetworkDelta):
+    """Apply the edit described by the networkdelta to the graph."""
     removed_edges = networkdelta.removed_edges
     removed_nodes = networkdelta.removed_nodes
 
@@ -22,6 +23,7 @@ def apply_edit(graph: nx.Graph, networkdelta: NetworkDelta):
 
 
 def find_anchor_node(graph, anchor_nodes):
+    """Find the first anchor node that is in the graph."""
     for anchor_node in anchor_nodes:
         if graph.has_node(anchor_node):
             return anchor_node
@@ -33,6 +35,8 @@ def resolve_edit(
     networkdelta: Optional[NetworkDelta],
     anchor_nodes: list,
 ):
+    """Apply the edit described by the networkdelta and return the connected component
+    containing the anchor node."""
     if networkdelta is not None:
         apply_edit(graph, networkdelta)
     anchor_node = find_anchor_node(graph, anchor_nodes)

@@ -21,6 +21,8 @@ def get_initial_node_ids(root_id, client):
 
 
 def get_initial_graph(root_id, client, verbose=True, return_as="networkx"):
+    """Get the initial graph for a given `root_id`, including objects that could become
+    part of the neuron in the future."""
     if return_as not in ["networkx", "arrays"]:
         ValueError(f"`return_as` must be 'networkx' or 'arrays', got {return_as}")
 

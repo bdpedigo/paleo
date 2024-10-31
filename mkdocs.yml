@@ -6,6 +6,7 @@ edit_uri: edit/main/docs/
 nav:
   - index.md
   - install.md
+  - Layout: map.md
   - Tutorials:
     - Extracting edits: tutorials/extraction.ipynb
     - Replaying edits: tutorials/replay.ipynb
@@ -51,7 +52,11 @@ markdown_extensions:
       generic: true
   - pymdownx.highlight:
       linenums: false
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          # format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.inlinehilite
   - pymdownx.details
   - admonition
@@ -107,3 +112,6 @@ plugins:
       enable_default_jupyter_cell_styling: true
       enable_default_pandas_dataframe_styling: true
   - social
+watch:
+  - src/
+  - docs/

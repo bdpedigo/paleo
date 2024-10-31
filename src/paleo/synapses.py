@@ -6,7 +6,9 @@ import pandas as pd
 def get_all_time_synapses(
     root_id, client, synapse_table=None, remove_self=True, verbose=False
 ):
-    # TODO is it worth parallelizing this?
+    """Get all synapses that could have been part of this `root_id` across all states."""
+    # TODO is it worth parallelizing this function?
+
     if synapse_table is None:
         synapse_table = client.info.get_datastack_info()["synapse_table"]
 

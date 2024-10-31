@@ -7,10 +7,19 @@ from .graph_edits import (  # noqa: I001
     get_operations_level2_edits,
     get_root_level2_edits,
 )
-from .level2_graph import get_initial_graph, get_initial_node_ids
+from .level2_graph import get_initial_graph
 from .networkdelta import NetworkDelta
-from .utils import get_node_aliases, get_component_masks, get_nucleus_supervoxel, get_nodes_aliases
-from .replay import apply_edit, resolve_edit
+from .utils import (
+    get_node_aliases,
+    get_component_masks,
+    get_nucleus_supervoxel,
+    get_nodes_aliases,
+    get_used_node_ids,
+    get_supervoxel_mappings,
+    get_changed_nodes,
+    get_used_node_ids,
+)
+from .replay import apply_edit, resolve_edit, find_anchor_node
 from .synapses import get_all_time_synapses
 
 __all__ = [
@@ -21,7 +30,6 @@ __all__ = [
     "get_operation_level2_edit",
     "get_operations_level2_edits",
     "get_root_level2_edits",
-    "get_initial_node_ids",
     "get_initial_graph",
     "apply_edit",
     "NetworkDelta",
@@ -32,4 +40,9 @@ __all__ = [
     "get_all_time_synapses",
     "get_nodes_aliases",
     "resolve_edit",
+    "get_used_node_ids",
+    "get_supervoxel_mappings",
+    "find_anchor_node",
+    "get_changed_nodes",
+    "get_used_node_ids",
 ]
