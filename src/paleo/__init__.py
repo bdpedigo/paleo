@@ -19,7 +19,7 @@ from .utils import (
     get_used_node_ids,
 )
 from .replay import apply_edit, resolve_edit, find_anchor_node, apply_edit_sequence
-from .synapses import get_all_time_synapses
+from .synapses import get_mutable_synapses, map_synapses_to_sequence
 
 __all__ = [
     "compare_graphs",
@@ -36,7 +36,7 @@ __all__ = [
     "get_component_masks",
     "get_initial_network",
     "get_nucleus_supervoxel",
-    "get_all_time_synapses",
+    "get_mutable_synapses",
     "get_nodes_aliases",
     "resolve_edit",
     "get_used_node_ids",
@@ -45,4 +45,5 @@ __all__ = [
     "get_changed_nodes",
     "get_used_node_ids",
     "apply_edit_sequence",
+    "map_synapses_to_sequence",
 ]
