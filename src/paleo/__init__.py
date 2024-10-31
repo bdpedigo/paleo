@@ -20,6 +20,7 @@ from .utils import (
 )
 from .replay import apply_edit, resolve_edit, find_anchor_node, apply_edit_sequence
 from .synapses import get_mutable_synapses, map_synapses_to_sequence
+from .skeletons import skeletonize_sequence
 
 __all__ = [
     "compare_graphs",
@@ -46,4 +47,5 @@ __all__ = [
     "get_used_node_ids",
     "apply_edit_sequence",
     "map_synapses_to_sequence",
+    "skeletonize_sequence",
 ]

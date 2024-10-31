@@ -5,9 +5,13 @@ resolution-markers = [
     "python_full_version < '3.11' and sys_platform == 'win32'",
     "python_full_version == '3.11.*' and sys_platform != 'win32'",
     "python_full_version == '3.11.*' and sys_platform == 'win32'",
-    "python_full_version < '3.13' and sys_platform != 'win32'",
+    "python_full_version < '3.11' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform != 'win32'",
     "python_full_version >= '3.13' and sys_platform != 'win32'",
-    "python_full_version < '3.13' and sys_platform == 'win32'",
+    "python_full_version < '3.11' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'win32'",
     "python_full_version >= '3.13' and sys_platform == 'win32'",
 ]
 
@@ -383,7 +387,7 @@ wheels = [
 
 [[package]]
 name = "caveclient"
-version = "6.3.0"
+version = "6.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -397,7 +401,7 @@ dependencies = [
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/91/5c/d9bc9182faede532d909167894b67301121652b9bf02e5e11905b5a011c3/caveclient-6.3.0.tar.gz", hash = "sha256:b4321fc13e3cd307659a50eb8d08e48cdf8529a3eb3d9adcf9c49eab6d9336de", size = 85211 }
+sdist = { url = "https://files.pythonhosted.org/packages/07/96/e20b2daf36e021be310db1722d66e066c25722a61e872a28a026c110733f/caveclient-6.4.1.tar.gz", hash = "sha256:5b02b51717bc9054a782aea35a02de348ebde4aca225af78f2831378df1c8233", size = 88773 }
 
 [[package]]
 name = "certifi"
@@ -2696,7 +2700,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "caveclient", specifier = ">=6.3.0" },
+    { name = "caveclient", specifier = ">=6.4.1" },
     { name = "ipywidgets", marker = "extra == 'jupyter'", specifier = ">=8.1.5" },
     { name = "joblib", specifier = ">=1.4.2" },
     { name = "jupyter", marker = "extra == 'jupyter'", specifier = ">=1.1.1" },
@@ -2836,7 +2840,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450 }
 wheels = [

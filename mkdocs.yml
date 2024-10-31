@@ -10,6 +10,8 @@ nav:
   - Tutorials:
     - Extracting edits: tutorials/extraction.ipynb
     - Replaying edits: tutorials/replay.ipynb
+    - Tracking synapses: tutorials/synapses.ipynb
+    - Skeletonizing: tutorials/skeletons.ipynb
     - Replay strategies: tutorials/strategies.ipynb
   - Examples:
     - Skeletonizing along a history: examples/skeletonize_history.ipynb

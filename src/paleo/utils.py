@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -51,7 +51,9 @@ def _get_level2_nodes_edges(
     return nodelist, edgelist
 
 
-def get_node_aliases(supervoxel_id, client, stop_layer=2) -> pd.DataFrame:
+def get_node_aliases(
+    supervoxel_id, client, stop_layer=2, return_as="list"
+) -> Union[list, pd.DataFrame]:
     """For a given supervoxel, get the node that it was part of at `stop_layer` for
     each timestamp.
     """
@@ -78,7 +80,10 @@ def get_node_aliases(supervoxel_id, client, stop_layer=2) -> pd.DataFrame:
         )[0]
 
     node_info = pd.DataFrame(node_info).set_index("node_id")
-    return node_info
+    if return_as == "list":
+        return node_info.index.to_list()
+    elif return_as == "df":
+        return node_info
 
 
 # a version of the above that used the already computed edits to do the tracking
@@ -157,7 +162,9 @@ def get_nucleus_supervoxel(root_id, client):
     return nuc_supervoxel_id
 
 
-def get_nodes_aliases(supervoxel_ids, client, stop_layer=2, verbose=True):
+def get_nodes_aliases(
+    supervoxel_ids, client, stop_layer=2, verbose=True, return_as="list"
+):
     """For a list of supervoxels, get all of the nodes at `stop_layer` that they were
     part of across time."""
 
@@ -199,7 +206,7 @@ def get_nodes_aliases(supervoxel_ids, client, stop_layer=2, verbose=True):
     # though
     with tqdm_joblib(total=len(supervoxels_to_lookup), disable=not verbose):
         historical_l2_ids = Parallel(n_jobs=-1)(
-            delayed(lambda sv: get_node_aliases(sv, client).index.to_list())(sv)
+            delayed(lambda sv: get_node_aliases(sv, client))(sv)
             for sv in supervoxels_to_lookup
         )
 
@@ -389,3 +396,12 @@ def get_supervoxel_mappings(supervoxel_ids, edits, client):
             supervoxel_mappings[supervoxel_id].append(level2_id)
 
     return supervoxel_mappings
+
+
+def get_nucleus_location(root_id, client):
+    nuc_table = client.info.get_datastack_info()["soma_table"]
+    nuc_info = client.materialize.query_table(
+        nuc_table, filter_equal_dict=dict(pt_root_id=root_id)
+    )
+    nuc_loc = nuc_info["pt_position"].values[0]
+    return nuc_loc

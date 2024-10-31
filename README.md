@@ -4,15 +4,14 @@ Python package for interfacing with CAVE edit histories
 
 ## Installation
 
+Install via pip:
+
 ```bash
 pip install paleo
 ```
 
-```mermaid
+Install via pip with optional dependencies:
 
-graph TD;
-    A-->B;
-    A-->C;
-    B-->D;
-    C-->D;
+```bash
+pip install paleo[skeleton]
 ```
