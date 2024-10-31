@@ -90,6 +90,7 @@ def get_mutable_synapses(
 
 
 def map_synapses_to_sequence(synapses: pd.DataFrame, components: dict, side="pre"):
+    """Map synapses (with level2 node information) to a sequence of level2 nodes."""
     if f"{side}_pt_level2_id" not in synapses.columns:
         raise ValueError(
             f"The synapses dataframe must have a column '{side}_pt_level2_id' to map synapses to components."

@@ -44,7 +44,7 @@ graph TD;
     click resolve_edit "../reference/#paleo.resolve_edit"
     click get_nucleus_supervoxel "../reference/#paleo.get_nucleus_supervoxel"
     click get_mutable_synapses "../reference/#paleo.get_mutable_synapses"
-    click map_synapses_to_graph "../reference/#paleo.map_synapses_to_graph"
+    click map_synapses_to_sequence "../reference/#paleo.map_synapses_to_sequence"
     click get_used_node_ids "../reference/#paleo.get_used_node_ids"
     click get_node_aliases "../reference/#paleo.get_node_aliases"
     click get_level2_data_table "https://caveconnectome.github.io/CAVEclient/api/l2cache/#caveclient.l2cache.L2CacheClient.get_l2data_table"
