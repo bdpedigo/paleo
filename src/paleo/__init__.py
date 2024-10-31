@@ -14,12 +14,11 @@ from .utils import (
     get_component_masks,
     get_nucleus_supervoxel,
     get_nodes_aliases,
-    get_used_node_ids,
     get_supervoxel_mappings,
     get_changed_nodes,
     get_used_node_ids,
 )
-from .replay import apply_edit, resolve_edit, find_anchor_node
+from .replay import apply_edit, resolve_edit, find_anchor_node, apply_edit_sequence
 from .synapses import get_all_time_synapses
 
 __all__ = [
@@ -45,4 +44,5 @@ __all__ = [
     "find_anchor_node",
     "get_changed_nodes",
     "get_used_node_ids",
+    "apply_edit_sequence",
 ]

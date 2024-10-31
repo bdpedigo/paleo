@@ -1,6 +1,9 @@
-from typing import Optional
+from typing import Optional, Union
 
 import networkx as nx
+import numpy as np
+import pandas as pd
+from tqdm.auto import tqdm
 
 from .networkdelta import NetworkDelta
 
@@ -42,3 +45,29 @@ def resolve_edit(
     anchor_node = find_anchor_node(graph, anchor_nodes)
     component = nx.node_connected_component(graph, anchor_node)
     return component
+
+
+def apply_edit_sequence(
+    graph: nx.Graph,
+    edits: dict,
+    anchor_nodes: Union[list, pd.Index, np.ndarray, pd.Series],
+    return_graphs: bool = False,
+    include_initial: bool = True,
+    verbose: bool = True,
+) -> Union[dict, tuple[dict, dict]]:
+    """Apply a sequence of edits to the graph in order, storing information about
+    intermediate states."""
+    graph = graph.copy()
+    if include_initial and -1 not in edits:
+        edits = {-1: None, **edits}
+    components = {}
+    subgraphs = {}
+    for edit_id, edit in tqdm(edits.items(), disable=not verbose):
+        component = resolve_edit(graph, edit, anchor_nodes)
+        components[edit_id] = component
+        if return_graphs:
+            subgraphs[edit_id] = graph.subgraph(component).copy()
+    if return_graphs:
+        return components, subgraphs
+    else:
+        return components
