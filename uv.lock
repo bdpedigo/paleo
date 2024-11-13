@@ -387,7 +387,7 @@ wheels = [
 
 [[package]]
 name = "caveclient"
-version = "6.4.1"
+version = "6.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -396,12 +396,13 @@ dependencies = [
     { name = "jsonschema" },
     { name = "networkx" },
     { name = "numpy" },
+    { name = "packaging" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/96/e20b2daf36e021be310db1722d66e066c25722a61e872a28a026c110733f/caveclient-6.4.1.tar.gz", hash = "sha256:5b02b51717bc9054a782aea35a02de348ebde4aca225af78f2831378df1c8233", size = 88773 }
+sdist = { url = "https://files.pythonhosted.org/packages/47/6a/9c1e4d437158f2e8251160c29687b46334e1731977fe61c4afb61ff3a7a7/caveclient-6.5.1.tar.gz", hash = "sha256:165c41f36a67eb8d19c71845bf03ada7c51c1a2b848f7752e4924886606436f7", size = 90097 }
 
 [[package]]
 name = "certifi"
@@ -2670,7 +2671,6 @@ source = { editable = "." }
 dependencies = [
     { name = "caveclient" },
     { name = "joblib" },
-    { name = "packaging" },
     { name = "pandas" },
     { name = "scipy" },
     { name = "tqdm-joblib" },
@@ -2701,11 +2701,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "caveclient", specifier = ">=6.4.1" },
+    { name = "caveclient", specifier = ">=6.5.1" },
     { name = "ipywidgets", marker = "extra == 'jupyter'", specifier = ">=8.1.5" },
     { name = "joblib", specifier = ">=1.4.2" },
     { name = "jupyter", marker = "extra == 'jupyter'", specifier = ">=1.1.1" },
-    { name = "packaging", specifier = ">=24.1" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pcg-skel", marker = "extra == 'skeleton'", specifier = ">=1.0.7" },
     { name = "scipy", specifier = ">=1.14.1" },
