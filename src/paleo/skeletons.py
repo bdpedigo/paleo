@@ -11,13 +11,13 @@ from .utils import get_nucleus_location
 
 try:
     from pcg_skel import pcg_skeleton_direct
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     msg = (
         "Please install the `pcg_skel` package to use skeletonization features. "
         "This can be done by running `pip install pcg-skel` "
         "or `pip install paleo[skeleton]`."
     )
-    raise ImportError(msg)
+    raise UserWarning(msg)
 
 
 def skeletonize_sequence(
