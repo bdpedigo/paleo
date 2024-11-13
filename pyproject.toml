@@ -2,6 +2,7 @@
 dependencies = [
     "caveclient>=6.4.1",
     "joblib>=1.4.2",
+    "packaging>=24.1",
     "pandas>=2.2.3",
     "scipy>=1.14.1",
     "tqdm-joblib>=0.0.4",
