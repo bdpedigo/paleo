@@ -9,16 +9,6 @@ from caveclient import CAVEclient
 
 from .utils import get_nucleus_location
 
-try:
-    from pcg_skel import pcg_skeleton_direct
-except (ImportError, ModuleNotFoundError):
-    msg = (
-        "Please install the `pcg_skel` package to use skeletonization features. "
-        "This can be done by running `pip install pcg-skel` "
-        "or `pip install paleo[skeleton]`."
-    )
-    raise UserWarning(msg)
-
 
 def skeletonize_sequence(
     graphs_by_state: dict,
@@ -28,6 +18,16 @@ def skeletonize_sequence(
     level2_data: Optional[pd.DataFrame] = None,
 ):
     """Generate skeletons for a sequence of graphs."""
+    try:
+        from pcg_skel import pcg_skeleton_direct
+    except (ImportError, ModuleNotFoundError):
+        msg = (
+            "Please install the `pcg_skel` package to use skeletonization features. "
+            "This can be done by running `pip install pcg-skel` "
+            "or `pip install paleo[skeleton]`."
+        )
+        raise ModuleNotFoundError(msg)
+
     if level2_data is None:
         used_nodes = set()
         for graph in graphs_by_state.values():
