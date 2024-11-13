@@ -54,16 +54,27 @@ class NetworkDelta:
 
     def to_dict(self) -> dict:
         out = dict(
-            removed_nodes=self.removed_nodes.to_list(),
-            added_nodes=self.added_nodes.to_list(),
-            removed_edges=self.removed_edges.values.tolist(),
-            added_edges=self.added_edges.values.tolist(),
+            removed_nodes=self.removed_nodes.tolist(),
+            added_nodes=self.added_nodes.tolist(),
+            removed_edges=self.removed_edges.tolist(),
+            added_edges=self.added_edges.tolist(),
             metadata=self.metadata,
         )
         return out
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, input):
+        removed_nodes = np.array(input["removed_nodes"], dtype=int)
+        added_nodes = np.array(input["added_nodes"], dtype=int)
+        removed_edges = np.array(input["removed_edges"], dtype=int).reshape(-1, 2)
+        added_edges = np.array(input["added_edges"], dtype=int).reshape(-1, 2)
+        metadata = input["metadata"]
+        return cls(
+            removed_nodes, added_nodes, removed_edges, added_edges, metadata=metadata
+        )
 
     # @classmethod
     # def from_dict(cls, input):
@@ -84,16 +95,19 @@ class NetworkDelta:
 
     def __eq__(self, other: "NetworkDelta") -> bool:
         if not isinstance(other, NetworkDelta):
+            print("other is not instance of NetworkDelta")
             return False
-        if not self.removed_nodes.equals(other.removed_nodes):
+        if not np.array_equal(self.removed_nodes, other.removed_nodes):
+            print("removed_nodes not equal")
             return False
-        if not self.added_nodes.equals(other.added_nodes):
+        if not np.array_equal(self.added_nodes, other.added_nodes):
+            print("added_nodes not equal")
             return False
-        if not self.removed_edges.equals(other.removed_edges):
+        if not np.array_equal(self.removed_edges, other.removed_edges):
+            print("removed_edges not equal")
             return False
-        if not self.added_edges.equals(other.added_edges):
-            return False
-        if self.metadata != other.metadata:
+        if not np.array_equal(self.added_edges, other.added_edges):
+            print("added_edges not equal")
             return False
         return True
 

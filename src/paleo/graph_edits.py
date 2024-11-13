@@ -11,6 +11,7 @@ from tqdm import TqdmExperimentalWarning
 
 warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
 
+from tqdm.auto import tqdm
 from tqdm_joblib import tqdm_joblib
 
 from caveclient import CAVEclient
@@ -357,7 +358,7 @@ def get_operations_level2_edits(
             )
     else:
         networkdeltas = []
-        for inputs in tqdm_joblib(
+        for inputs in tqdm(
             inputs_by_operation,
             disable=not verbose,
             desc="Extracting level2 edits",
@@ -430,7 +431,7 @@ def get_root_level2_edits(
             )
     else:
         networkdeltas_by_operation = []
-        for inputs in tqdm_joblib(
+        for inputs in tqdm(
             inputs_by_operation,
             disable=not verbose,
             desc="Extracting level2 edits",
@@ -497,9 +498,7 @@ def get_metaedits(
     meta_operation_map = {}
     operation_map = {}
     for label in np.unique(labels):
-        edits = node_edit_indicators.columns[
-            labels == label
-        ].tolist()
+        edits = node_edit_indicators.columns[labels == label].tolist()
         meta_operation_map[label] = edits
         for edit in edits:
             operation_map[edit] = label
@@ -513,7 +512,6 @@ def get_metaedits(
         networkdeltas_by_meta_operation[meta_operation_id] = meta_networkdelta
 
     return networkdeltas_by_meta_operation, operation_map
-
 
 
 def get_metadata_table(operation_ids=None, root_ids=None, client=None):
