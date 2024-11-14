@@ -351,7 +351,7 @@ def get_changed_nodes(edits):
     return np.unique(changed_nodes)
 
 
-def get_supervoxel_mappings(supervoxel_ids, edits, client):
+def get_supervoxel_mappings(supervoxel_ids, edits, client, n_jobs=-1):
     """For a set of supervoxels and edits, get a mapping between the supervoxels and
     any level2 nodes they could have been part of across time."""
     # from our set of edits, get and level2 nodes that might have changed
@@ -365,7 +365,7 @@ def get_supervoxel_mappings(supervoxel_ids, edits, client):
         return supervoxels[mask]
 
     with tqdm_joblib(desc="Getting leaves", total=len(changed_nodes)):
-        leaves_by_l2 = Parallel(n_jobs=-1)(
+        leaves_by_l2 = Parallel(n_jobs=n_jobs)(
             delayed(check_leaves)(node) for node in changed_nodes
         )
 

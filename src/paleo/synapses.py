@@ -15,6 +15,7 @@ def get_mutable_synapses(
     synapse_table=None,
     remove_self=True,
     verbose=False,
+    n_jobs=-1,
 ):
     """Get all synapses that could have been part of this `root_id` across all states."""
     # TODO is it worth parallelizing this function?
@@ -71,7 +72,9 @@ def get_mutable_synapses(
         table = tables[i]
         all_supervoxel_ids.append(table[f"{side}_pt_supervoxel_id"].unique())
     supervoxel_ids = np.unique(np.concatenate(all_supervoxel_ids))
-    supervoxel_mappings = get_supervoxel_mappings(supervoxel_ids, edits, client)
+    supervoxel_mappings = get_supervoxel_mappings(
+        supervoxel_ids, edits, client, n_jobs=n_jobs
+    )
 
     exploded_tables = []
     for i, side in enumerate(sides):
@@ -84,9 +87,7 @@ def get_mutable_synapses(
     if len(exploded_tables) == 1:
         return exploded_tables[0]
     else:
-        return tuple(*exploded_tables)
-
-    # return (tables[0], tables[1])
+        return exploded_tables[0], exploded_tables[1]
 
 
 def map_synapses_to_sequence(synapses: pd.DataFrame, nodes_by_state: dict, side="pre"):
