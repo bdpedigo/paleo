@@ -401,7 +401,9 @@ def get_supervoxel_mappings(supervoxel_ids, edits, client, n_jobs=-1):
 def get_nucleus_location(root_id, client):
     nuc_table = client.info.get_datastack_info()["soma_table"]
     nuc_info = client.materialize.query_table(
-        nuc_table, filter_equal_dict=dict(pt_root_id=root_id)
+        nuc_table,
+        filter_equal_dict=dict(pt_root_id=root_id),
+        desired_resolution=[1, 1, 1],
     )
     nuc_loc = nuc_info["pt_position"].values[0]
     return nuc_loc

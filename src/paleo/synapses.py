@@ -1,5 +1,6 @@
 import time
 
+import networkx as nx
 import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
@@ -90,19 +91,60 @@ def get_mutable_synapses(
         return exploded_tables[0], exploded_tables[1]
 
 
-def map_synapses_to_sequence(synapses: pd.DataFrame, nodes_by_state: dict, side="pre"):
-    """Map synapses (with level2 node information) to a sequence of level2 nodes."""
+def map_synapses_to_sequence(
+    synapses: pd.DataFrame,
+    nodes_by_state: dict[list, nx.Graph],
+    side="pre",
+    verbose=True,
+) -> dict[int, dict[int, int]]:
+    """Map synapses (with level2 node information) to a sequence of level2 nodes/graphs.
+
+    Parameters
+    ----------
+    synapses : pd.DataFrame
+        A dataframe of synapses with a column "{side}_pt_level2_id" that describes what
+        level2 node the synapse is on. Note that a single synapse ID can be associated
+        with multiple level2 nodes, denoted by multiple rows. This specific synapse
+        table can be generated using `paleo.get_mutable_synapses`.
+    nodes_by_state : dict[list, nx.Graph]
+        A dictionary mapping each state IDs to either a list of level2 nodes or a level2
+        graph.
+    side : str, optional
+        The side of the synapse to map to the sequence of states, either "pre" or
+        "post".
+    verbose : bool, optional
+        Whether to display a progress bar.
+
+    Returns
+    :
+        Dictionary mapping each state IDs to a dictionary, where the keys are the
+        synapse IDs and the values are the level2 node IDs they are associated with at
+        that state.
+    """
     if f"{side}_pt_level2_id" not in synapses.columns:
         raise ValueError(
             f"The synapses dataframe must have a column '{side}_pt_level2_id' to map synapses to components."
         )
     synapses = synapses.reset_index(drop=False).set_index(f"{side}_pt_level2_id")
     synapse_ids_by_edit = {}
-    for state_id, nodes in tqdm(nodes_by_state.items()):
+    for state_id, nodes in tqdm(
+        nodes_by_state.items(), desc="Mapping synapses to states", disable=not verbose
+    ):
         component_synapse_index = synapses.index.intersection(list(nodes))
-        synapse_ids_at_state = (
-            synapses.loc[component_synapse_index, "id"].unique().tolist()
+        # synapse_ids_at_state = (
+        #     synapses.loc[component_synapse_index, "id"].unique().tolist()
+        # )
+
+        # synapse_ids_by_edit[state_id] = synapse_ids_at_state
+
+        synapse_mapping_at_state = (
+            synapses.loc[component_synapse_index, "id"]
+            .to_frame()
+            .reset_index()
+            .set_index("id")[f"{side}_pt_level2_id"]
+            .to_dict()
         )
-        synapse_ids_by_edit[state_id] = synapse_ids_at_state
+
+        synapse_ids_by_edit[state_id] = synapse_mapping_at_state
 
     return synapse_ids_by_edit

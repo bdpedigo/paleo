@@ -16,6 +16,7 @@ def skeletonize_sequence(
     root_id: Optional[int] = None,
     root_point: Optional[np.ndarray] = None,
     level2_data: Optional[pd.DataFrame] = None,
+    verbose: bool = True,
 ):
     """Generate skeletons for a sequence of graphs."""
     try:
@@ -40,7 +41,10 @@ def skeletonize_sequence(
         root_point = get_nucleus_location(root_id, client)
 
     skeletons_by_state = {}
-    for state_id, graph in tqdm(graphs_by_state.items()):
+    mappings_by_state = {}
+    for state_id, graph in tqdm(
+        graphs_by_state.items(), desc="Skeletonizing states", disable=not verbose
+    ):
         node_ids = pd.Index(list(graph.nodes()))
         vertices = level2_data.loc[
             node_ids, ["rep_coord_nm_x", "rep_coord_nm_y", "rep_coord_nm_z"]
@@ -48,7 +52,12 @@ def skeletonize_sequence(
         edges = nx.to_pandas_edgelist(graph).values
         edges = np.vectorize(node_ids.get_loc)(edges)
 
-        skeleton = pcg_skeleton_direct(vertices, edges, root_point=root_point)
+        skeleton = pcg_skeleton_direct(
+            vertices, edges, root_point=root_point, collapse_soma=True
+        )
         skeletons_by_state[state_id] = skeleton
 
-    return skeletons_by_state
+        mapping = dict(zip(node_ids, skeleton.mesh_to_skel_map))
+        mappings_by_state[state_id] = mapping
+
+    return skeletons_by_state, mappings_by_state

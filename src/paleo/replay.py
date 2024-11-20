@@ -62,7 +62,9 @@ def apply_edit_sequence(
         edits = {-1: None, **edits}
 
     out = {}
-    for edit_id, edit in tqdm(edits.items(), disable=not verbose):
+    for edit_id, edit in tqdm(
+        edits.items(), disable=not verbose, desc="Applying edits"
+    ):
         component = resolve_edit(graph, edit, anchor_nodes)
         if return_graphs:
             out[edit_id] = graph.subgraph(component).copy()
