@@ -66,11 +66,16 @@ class NetworkDelta:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_dict(cls, input):
-        removed_nodes = np.array(input["removed_nodes"], dtype=int)
-        added_nodes = np.array(input["added_nodes"], dtype=int)
-        removed_edges = np.array(input["removed_edges"], dtype=int).reshape(-1, 2)
-        added_edges = np.array(input["added_edges"], dtype=int).reshape(-1, 2)
+    def from_dict(cls, input, dtype=int):
+        removed_nodes = np.array(input["removed_nodes"], dtype=dtype)
+        added_nodes = np.array(input["added_nodes"], dtype=dtype)
+        removed_edges = np.atleast_2d(np.array(input["removed_edges"], dtype=dtype))
+        # TODO these size things are a hack, will not generalize if nodes are 3D
+        if removed_edges.size == 0:
+            removed_edges = np.empty((0, 2), dtype=dtype)
+        added_edges = np.atleast_2d(np.array(input["added_edges"], dtype=dtype))
+        if added_edges.size == 0:
+            added_edges = np.empty((0, 2), dtype=dtype)
         metadata = input["metadata"]
         return cls(
             removed_nodes, added_nodes, removed_edges, added_edges, metadata=metadata
@@ -95,19 +100,14 @@ class NetworkDelta:
 
     def __eq__(self, other: "NetworkDelta") -> bool:
         if not isinstance(other, NetworkDelta):
-            print("other is not instance of NetworkDelta")
             return False
         if not np.array_equal(self.removed_nodes, other.removed_nodes):
-            print("removed_nodes not equal")
             return False
         if not np.array_equal(self.added_nodes, other.added_nodes):
-            print("added_nodes not equal")
             return False
         if not np.array_equal(self.removed_edges, other.removed_edges):
-            print("removed_edges not equal")
             return False
         if not np.array_equal(self.added_edges, other.added_edges):
-            print("added_edges not equal")
             return False
         return True
 
@@ -116,6 +116,15 @@ class NetworkDelta:
 
     def __add__(self, other: "NetworkDelta") -> "NetworkDelta":
         return combine_deltas([self, other])
+
+    @property
+    def is_empty(self) -> bool:
+        return (
+            self.removed_nodes.size == 0
+            and self.added_nodes.size == 0
+            and self.removed_edges.size == 0
+            and self.added_edges.size == 0
+        )
 
 
 def _unique_concatenate(

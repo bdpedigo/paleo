@@ -472,7 +472,13 @@ def get_metaedits(
         mod_set = []
         mod_set += delta.added_nodes.tolist()
         mod_set += delta.removed_nodes.tolist()
-        mod_set += delta.added_edges[:, 0].tolist()
+        try:
+            mod_set += delta.added_edges[:, 0].tolist()
+        except IndexError as e: 
+            print(delta.added_edges)
+            print(type(delta.added_edges))
+            print(delta.added_edges.shape)
+            raise e
         mod_set += delta.added_edges[:, 1].tolist()
         mod_set += delta.removed_edges[:, 0].tolist()
         mod_set += delta.removed_edges[:, 1].tolist()
