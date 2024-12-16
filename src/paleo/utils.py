@@ -2,12 +2,11 @@ from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
+from caveclient import CAVEclient
 from joblib import Parallel, delayed
 from requests.exceptions import HTTPError
 from tqdm.auto import tqdm
 from tqdm_joblib import tqdm_joblib
-
-from caveclient import CAVEclient
 
 from .constants import TIMESTAMP_DELTA
 from .replay import resolve_edit
@@ -151,7 +150,7 @@ def get_nucleus_supervoxel(root_id, client):
     in the soma table."""
     nuc_table = client.info.get_datastack_info()["soma_table"]
     nuc_info = client.materialize.query_table(
-        nuc_table, filter_equal_dict=dict(pt_root_id=root_id)
+        nuc_table, filter_equal_dict=dict(pt_root_id=root_id), log_warning=False
     )
     if len(nuc_info) == 0:
         raise ValueError(f"No nucleus found for root_id: {root_id}")

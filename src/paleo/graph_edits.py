@@ -11,10 +11,9 @@ from tqdm import TqdmExperimentalWarning
 
 warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
 
+from caveclient import CAVEclient
 from tqdm.auto import tqdm
 from tqdm_joblib import tqdm_joblib
-
-from caveclient import CAVEclient
 
 from .constants import TIMESTAMP_DELTA
 from .networkdelta import NetworkDelta, combine_deltas
@@ -474,7 +473,7 @@ def get_metaedits(
         mod_set += delta.removed_nodes.tolist()
         try:
             mod_set += delta.added_edges[:, 0].tolist()
-        except IndexError as e: 
+        except IndexError as e:
             print(delta.added_edges)
             print(type(delta.added_edges))
             print(delta.added_edges.shape)
@@ -507,7 +506,7 @@ def get_metaedits(
         edits = node_edit_indicators.columns[labels == label].tolist()
         meta_operation_map[label] = edits
         for edit in edits:
-            operation_map[edit] = label
+            operation_map[edit] = label.item()
 
     # for each meta-operation, combine the deltas of the operations that make it up
     networkdeltas_by_meta_operation = {}
@@ -518,6 +517,15 @@ def get_metaedits(
         networkdeltas_by_meta_operation[meta_operation_id] = meta_networkdelta
 
     return networkdeltas_by_meta_operation, operation_map
+
+
+def get_metaedit_counts(edit_map):
+    metaedit_counts = {}
+    for metaedit in edit_map.values():
+        if metaedit not in metaedit_counts:
+            metaedit_counts[metaedit] = 0
+        metaedit_counts[metaedit] += 1
+    return metaedit_counts
 
 
 def get_metadata_table(operation_ids=None, root_ids=None, client=None):

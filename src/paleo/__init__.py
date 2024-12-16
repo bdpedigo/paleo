@@ -6,6 +6,7 @@ from .graph_edits import (  # noqa: I001
     get_operation_level2_edit,
     get_operations_level2_edits,
     get_root_level2_edits,
+    get_metaedit_counts,
 )
 from .level2_graph import get_initial_graph
 from .networkdelta import NetworkDelta
@@ -20,7 +21,7 @@ from .utils import (
 )
 from .replay import apply_edit, resolve_edit, find_anchor_node, apply_edit_sequence
 from .synapses import get_mutable_synapses, map_synapses_to_sequence
-from .skeletons import skeletonize_sequence, compare_skeletons, check_skeleton_changed
+from .skeletons import skeletonize_sequence, compare_skeletons, check_skeleton_changes
 
 __all__ = [
     "compare_graphs",
@@ -49,5 +50,6 @@ __all__ = [
     "map_synapses_to_sequence",
     "skeletonize_sequence",
     "compare_skeletons",
-    "check_skeleton_changed",
+    "check_skeleton_changes",
+    "get_metaedit_counts",
 ]

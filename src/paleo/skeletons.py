@@ -1,13 +1,12 @@
-from typing import Optional
+from typing import Literal, Optional
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+from caveclient import CAVEclient
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 from tqdm_joblib import tqdm_joblib
-
-from caveclient import CAVEclient
 
 from .graph_edits import compare_graphs
 from .networkdelta import NetworkDelta
@@ -20,10 +19,40 @@ def skeletonize_sequence(
     root_id: Optional[int] = None,
     root_point: Optional[np.ndarray] = None,
     level2_data: Optional[pd.DataFrame] = None,
+    remove_unchanged: bool = True,
+    return_as: Literal["meshparty", "arrays", "networkx"] = "meshparty",
     n_jobs: int = -1,
     verbose: bool = True,
 ):
-    """Generate skeletons for a sequence of graphs."""
+    """Generate skeletons for a sequence of graphs.
+
+    Parameters
+    ----------
+    graphs_by_state :
+        A dictionary mapping state IDs to NetworkX graphs.
+    client :
+        A CAVEclient instance.
+    root_id :
+        The ID of the root node, used to determine the root point for skeletonization if
+        `root_point` is not provided.
+    root_point :
+        The root point for skeletonization. If not provided, it will be determined
+        using the `root_id` and `client`.
+    level2_data :
+        The level 2 data table, containing the node coordinates in columns
+        "rep_coord_nm_x", "rep_coord_nm_y", "rep_coord_nm_z".
+    remove_unchanged :
+        Whether to remove states with no changes from the previous state from the
+        sequence.
+    return_as :
+        The format to return the skeletons in. Options are "meshparty", "arrays", and
+        "networkx".
+    n_jobs :
+        The number of jobs to run in parallel. See joblib.Parallel for more details.
+    verbose :
+        Whether to display progress bars.
+    """
+
     try:
         from pcg_skel import pcg_skeleton_direct
     except (ImportError, ModuleNotFoundError):
@@ -57,7 +86,7 @@ def skeletonize_sequence(
             vertices, edges, root_point=root_point, collapse_soma=True
         )
 
-        mapping = dict(zip(node_ids, skeleton.mesh_to_skel_map))
+        mapping = dict(zip(node_ids, skeleton.mesh_to_skel_map.tolist()))
         return skeleton, mapping
 
     if n_jobs != 1:
@@ -78,12 +107,39 @@ def skeletonize_sequence(
             )
         ]
 
+    if remove_unchanged:
+        keep_state = check_skeleton_changes(
+            {
+                state_id: result[0]
+                for state_id, result in zip(graphs_by_state.keys(), results)
+            }
+        )
+
     skeletons_by_state = {}
     mappings_by_state = {}
     for state_id, (skeleton, mapping) in zip(graphs_by_state.keys(), results):
+        if remove_unchanged and not keep_state[state_id]:
+            continue
+        if return_as == "meshparty":
+            pass
+        elif return_as == "arrays":
+            skeleton = (skeleton.vertices, skeleton.edges)
+        elif return_as == "networkx":
+            if len(skeleton.edges) > 0:
+                new_skeleton = nx.from_edgelist(skeleton.edges.tolist())
+            else:
+                new_skeleton = nx.Graph()
+                new_skeleton.add_nodes_from(list(range(len(skeleton.vertices))))
+            positions = {}
+            for i in range(len(skeleton.vertices)):
+                positions[i] = {}
+                positions[i]["x"] = skeleton.vertices[i][0].item()
+                positions[i]["y"] = skeleton.vertices[i][1].item()
+                positions[i]["z"] = skeleton.vertices[i][2].item()
+            nx.set_node_attributes(new_skeleton, positions)
+            skeleton = new_skeleton
         skeletons_by_state[state_id] = skeleton
         mappings_by_state[state_id] = mapping
-
     return skeletons_by_state, mappings_by_state
 
 
@@ -142,7 +198,7 @@ def compare_skeletons(
     return delta, union_positions
 
 
-def check_skeleton_changed(skeletons_by_state: dict) -> dict:
+def check_skeleton_changes(skeletons_by_state: dict) -> dict:
     """Check if each skeleton in a sequence is different,
     compared to the one before it.
 

@@ -148,3 +148,4 @@ def map_synapses_to_sequence(
         synapse_ids_by_edit[state_id] = synapse_mapping_at_state
 
     return synapse_ids_by_edit
+

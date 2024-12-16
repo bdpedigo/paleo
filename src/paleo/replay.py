@@ -53,6 +53,7 @@ def apply_edit_sequence(
     anchor_nodes: Union[list, pd.Index, np.ndarray, pd.Series],
     return_graphs: bool = False,
     include_initial: bool = True,
+    remove_unchanged: bool = False,
     verbose: bool = True,
 ) -> Union[dict, tuple[dict, dict]]:
     """Apply a sequence of edits to the graph in order, storing information about
@@ -70,5 +71,19 @@ def apply_edit_sequence(
             out[edit_id] = graph.subgraph(component).copy()
         else:
             out[edit_id] = component
+
+    if remove_unchanged:
+        last = list(out.values())[0]
+        for edit_id, current in list(out.items())[1:]:
+            if return_graphs:
+                if nx.utils.graphs_equal(last, current):
+                    del out[edit_id]
+                else:
+                    last = current
+            else:
+                if set(last) == set(current):
+                    del out[edit_id]
+                else:
+                    last = current
 
     return out
