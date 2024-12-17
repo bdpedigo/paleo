@@ -78,9 +78,12 @@ def _get_all_nodes_edges(
         nodes, edges = _get_level2_nodes_edges(root_id, client, bounds=bounds)
         all_nodes.append(nodes)
         all_edges.append(edges)
-    all_nodes = np.concatenate(all_nodes, dtype=int)
-    all_edges = np.concatenate(all_edges, dtype=int)
-    return all_nodes, all_edges
+    if len(all_nodes) == 0:
+        return np.empty(0, dtype=int), np.empty((0, 2), dtype=int)
+    else:
+        all_nodes = np.concatenate(all_nodes, dtype=int)
+        all_edges = np.concatenate(all_edges, dtype=int)
+        return all_nodes, all_edges
 
 
 def get_detailed_change_log(
