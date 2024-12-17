@@ -2,6 +2,7 @@ import warnings
 from datetime import datetime
 from typing import Collection, Optional, Union
 
+import networkx as nx
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
@@ -562,3 +563,16 @@ def get_metadata_table(operation_ids=None, root_ids=None, client=None):
 
     """
     raise NotImplementedError("This function is not yet implemented.")
+
+
+def check_graph_changes(graphs_by_state: dict):
+    states = list(graphs_by_state.keys())
+    states_is_new = {states[0]: True}
+    for state_iloc in range(1, len(states)):
+        last_state = states[state_iloc - 1]
+        this_state = states[state_iloc]
+        last_graph = graphs_by_state[last_state]
+        this_graph = graphs_by_state[this_state]
+        graphs_changed = not nx.utils.graphs_equal(last_graph, this_graph)
+        states_is_new[this_state] = graphs_changed
+    return states_is_new

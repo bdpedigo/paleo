@@ -7,7 +7,9 @@ from joblib import Parallel, delayed
 from tqdm import TqdmExperimentalWarning
 
 warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
+from typing import Optional
 
+from caveclient import CAVEclient
 from tqdm.auto import tqdm
 from tqdm_joblib import tqdm_joblib
 
@@ -67,3 +69,44 @@ def get_initial_graph(root_id, client, verbose=True, return_as="networkx", n_job
         return graph
     else:  # return_as == 'arrays'
         return all_nodes, all_edges
+
+
+def get_level2_data(graphs_by_state: dict, client: CAVEclient):
+    used_nodes = set()
+    for graph in graphs_by_state.values():
+        used_nodes.update(graph.nodes())
+    used_nodes = np.array(list(used_nodes))
+    level2_data = client.l2cache.get_l2data_table(used_nodes)
+    return level2_data
+
+
+def get_level2_spatial_graphs(
+    graphs_by_state: dict,
+    client: Optional[CAVEclient] = None,
+    level2_data=None,
+    index_on=None,
+):
+    if level2_data is None and client is not None:
+        level2_data = get_level2_data(graphs_by_state, client)
+    elif level2_data is None:
+        raise ValueError("Must provide either `level2_data` or `client`")
+    
+    if index_on is None:
+        index_on = [
+            "rep_coord_nm_x",
+            "rep_coord_nm_y",
+            "rep_coord_nm_z",
+            "size_nm3",
+            "area_nm2",
+        ]
+    keys = level2_data[index_on]
+    keys = list(zip(*keys.values.T))
+    key_mapping = dict(zip(level2_data.index, keys))
+
+    spatial_graphs_by_state = {}
+    for state_id, graph in graphs_by_state.items():
+        spatial_graph = graph.copy()
+        spatial_graph = nx.relabel_nodes(spatial_graph, key_mapping)
+        spatial_graphs_by_state[state_id] = spatial_graph
+
+    return spatial_graphs_by_state

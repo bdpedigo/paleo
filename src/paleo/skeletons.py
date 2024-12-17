@@ -19,7 +19,7 @@ def skeletonize_sequence(
     root_id: Optional[int] = None,
     root_point: Optional[np.ndarray] = None,
     level2_data: Optional[pd.DataFrame] = None,
-    remove_unchanged: bool = True,
+    remove_unchanged: bool = False,
     return_as: Literal["meshparty", "arrays", "networkx"] = "meshparty",
     n_jobs: int = -1,
     verbose: bool = True,

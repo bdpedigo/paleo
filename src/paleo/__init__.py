@@ -7,8 +7,9 @@ from .graph_edits import (  # noqa: I001
     get_operations_level2_edits,
     get_root_level2_edits,
     get_metaedit_counts,
+    check_graph_changes,
 )
-from .level2_graph import get_initial_graph
+from .level2_graph import get_initial_graph, get_level2_data, get_level2_spatial_graphs
 from .networkdelta import NetworkDelta
 from .utils import (
     get_node_aliases,
@@ -52,4 +53,7 @@ __all__ = [
     "compare_skeletons",
     "check_skeleton_changes",
     "get_metaedit_counts",
+    "check_graph_changes",
+    "get_level2_data",
+    "get_level2_spatial_graphs",
 ]
